@@ -690,7 +690,7 @@ function itemsOn(d){
         const r=range(t.dueDate,t.status,lastOf(t,'완료'));
         if(inR(d,r))out.push({t,ord:7,time:'',title:t.title,meta:[t.subcat,t.status,`예정 ${mmdd(t.dueDate)}`].filter(Boolean).join(' · '),badge:dBadge(t.dueDate,isDone(t)),late:d>t.dueDate&&!isDone(t)&&t.status!=='보류',done:isDone(t),hold:t.status==='보류'});
         (t.actions||[]).forEach(a=>{
-          const ar=range(a.target,a.status,a.end||lastOf(a,'완료'));
+          const ar=range(a.target,a.status,a.end||lastOf(a,'완료'),[t.receivedDate,a.start].filter(isValidDate).sort().pop());
           if(inR(d,ar))out.push({t,sub:a,ord:7.5,time:'',title:'↳ '+(a.name||'(이름 없음)'),meta:`${t.title} · ${a.status} · 목표 ${mmdd(a.target)}`,badge:dBadge(a.target,a.status==='완료'),late:d>a.target&&a.status!=='완료',done:a.status==='완료'});
         });
         break;}
@@ -854,7 +854,7 @@ function actionsField(draft){
     box.append(el('div',{class:'act','data-aid':a.id},
       el('div',{class:'acthead'},el('span',{class:'num'},`#${i+1}`),el('input',{type:'text',placeholder:'Item명',value:a.name||'',oninput:e=>{a.name=e.target.value;}}),
         el('button',{type:'button',class:'btn sm danger',onclick:()=>{if(confirm('이 Action Item을 삭제할까요?')){draft.actions.splice(i,1);renderModal();}}},'삭제')),
-      el('div',{class:'grid3'},sf('시작일',dateField(a.start,v=>{a.start=v;})),sf('완료목표일 (−5 Workday부터 대시보드 표시)',dateField(a.target,v=>{a.target=v;})),sf('종료일',dateField(a.end,v=>{a.end=v;},{allowEmpty:true}))),
+      el('div',{class:'grid3'},sf('시작일',dateField(a.start,v=>{a.start=v;})),sf('완료목표일 (표시: −5 Workday·접수일·시작일 중 늦은 날부터 / 미완료 시 지연 표시)',dateField(a.target,v=>{a.target=v;})),sf('종료일',dateField(a.end,v=>{a.end=v;},{allowEmpty:true}))),
       sf('현황',statusField(a,ACT_ST,()=>renderModal(),s=>{if(s==='완료'&&!a.end)a.end=today();}))));
   });
   box.append(el('button',{type:'button',class:'btn',onclick:()=>{draft.actions.push(newAction());renderModal();}},'＋ Action Item 추가'));
