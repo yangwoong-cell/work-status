@@ -73,10 +73,15 @@ header.top h1{font-size:16px;margin:0 10px 0 0;white-space:nowrap}
 .tb.c-notice{color:var(--b-notice)}.tb.c-meeting{color:var(--b-meeting)}.tb.c-appointment{color:var(--b-appointment)}.tb.c-periodic{color:var(--b-periodic)}
 .tb.c-oneoff{color:var(--b-oneoff)}.tb.c-facility{color:var(--b-facility)}.tb.c-equipment{color:var(--b-equipment)}
 /* 주간 */
-.weekbar{display:flex;align-items:center;gap:6px;margin-bottom:10px;flex-wrap:wrap}
+.weekbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:sticky;top:-14px;z-index:8;background:var(--bg);margin:-14px -16px 0;padding:14px 16px 10px}
 .weekbar .lbl{font-size:16px;font-weight:700;margin:0 8px}
 .legend{display:flex;gap:6px;flex-wrap:wrap;margin-left:auto}
-table.week{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:var(--panel);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+table.week{width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+table.week thead th{position:sticky;top:calc(var(--wbh,52px) - 14px);z-index:7}
+table.week thead th:first-child{border-top-left-radius:10px}
+table.week thead th:last-child{border-top-right-radius:10px}
+table.week tbody td:first-child{border-bottom-left-radius:10px}
+table.week tbody td:last-child{border-bottom-right-radius:10px}
 table.week th{padding:8px;border-bottom:1px solid var(--line);border-right:1px solid var(--line2);background:var(--panel2);text-align:left;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 table.week th:last-child,table.week td:last-child{border-right:0}
 table.week th .d{font-size:12px;color:var(--sub);font-weight:500;margin-left:5px}
@@ -415,7 +420,7 @@ const FORMS={
   periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea')],
   oneoff:[f('title','업무명','text',1),f('subcat','구분','select',1,ONEOFF_CATS),f('importance','중요도','seg',1,GRADES,{desc:IMP_DESC,long:IMP_LONG,hint:GRADES.map(g=>`${g}: ${IMP_LONG[g]}`).join('\n')}),f('urgency','긴급도','seg',1,GRADES,{desc:URG_DESC,long:URG_LONG,hint:GRADES.map(g=>`${g}: ${URG_LONG[g]}`).join('\n')}),
     f('receivedDate','접수일','date',1),f('requestDate','완료요청일','date',1),f('dueDate','완료예정일','date',1,null,{hint:'대시보드 표시: 완료예정일 −5 Workday와 접수일 중 늦은 날부터 · 미완료 시 예정일이 지나도 "지연"으로 계속 표시'}),
-    f('status','현황','status'),f('requester','요청의뢰자','text'),f('collaborator','협조자','text'),f('memo','메모','textarea')],
+    f('status','현황','status'),f('requester','요청의뢰자','text'),f('collaborator','협조자','text'),f('memo','메모','textarea'),f('actions','세부 Action Item','actions')],
   facility:[f('title','업무명','text',1),f('receivedDate','접수일','date',1),f('requestDate','완료 요청일','date',1),f('repairDate','수리 예정일','date',1,null,{hint:'대시보드에는 수리 예정일 −5 Workday부터 표시'}),
     f('manager','담당자','text'),f('status','현황','status'),f('memo','메모','textarea')],
   equipment:[f('title','업무명','text',1),f('subcat','구분','select',1,EQ_CATS),f('receivedDate','접수일','date',1),f('requestDate','완료 요청일','date',1),
@@ -501,7 +506,7 @@ function blankTask(type){
   const T=today();const b={id:uid(),type,title:'',created:T,history:[],memo:''};
   switch(type){
     case 'periodic':Object.assign(b,{cycle:'',baseDate:T,rule:null,done:{}});break;
-    case 'oneoff':Object.assign(b,{subcat:'',importance:'',urgency:'',receivedDate:T,requestDate:T,dueDate:T,status:'',requester:'',collaborator:''});break;
+    case 'oneoff':Object.assign(b,{subcat:'',importance:'',urgency:'',receivedDate:T,requestDate:T,dueDate:T,status:'',requester:'',collaborator:'',actions:[]});break;
     case 'facility':Object.assign(b,{receivedDate:T,requestDate:T,repairDate:T,manager:'',status:''});break;
     case 'equipment':Object.assign(b,{subcat:'',receivedDate:T,requestDate:T,dueDate:T,manager:'',status:'',actions:[]});break;
     case 'meeting':{const st=nextHour();Object.assign(b,{kind:'',date:T,repeat:'없음',sessions:{},startTime:st,endTime:addHour(st,1),place:'',hostDept:'',host:'',attendDept:'',agenda:'',result:''});break;}
@@ -681,6 +686,7 @@ function itemsOn(d){
       case 'oneoff':{
         const r=range(t.dueDate,t.status,lastOf(t,'완료'),t.receivedDate);
         if(inR(d,r))out.push({t,ord:5,time:'',title:t.title,pri:gr(t),meta:[t.subcat,t.status,`예정 ${mmdd(t.dueDate)}`].filter(Boolean).join(' · '),badge:dBadge(t.dueDate,isDone(t)),late:d>t.dueDate&&!isDone(t)&&t.status!=='보류',done:isDone(t),hold:t.status==='보류'});
+        pushActions(out,t,d,5.5);
         break;}
       case 'facility':{
         const k=t.repairDate||t.requestDate;const r=range(k,t.status,lastOf(t,'완료'));
@@ -689,10 +695,7 @@ function itemsOn(d){
       case 'equipment':{
         const r=range(t.dueDate,t.status,lastOf(t,'완료'));
         if(inR(d,r))out.push({t,ord:7,time:'',title:t.title,meta:[t.subcat,t.status,`예정 ${mmdd(t.dueDate)}`].filter(Boolean).join(' · '),badge:dBadge(t.dueDate,isDone(t)),late:d>t.dueDate&&!isDone(t)&&t.status!=='보류',done:isDone(t),hold:t.status==='보류'});
-        (t.actions||[]).forEach(a=>{
-          const ar=range(a.target,a.status,a.end||lastOf(a,'완료'),[t.receivedDate,a.start].filter(isValidDate).sort().pop());
-          if(inR(d,ar))out.push({t,sub:a,ord:7.5,time:'',title:'↳ '+(a.name||'(이름 없음)'),meta:`${t.title} · ${a.status} · 목표 ${mmdd(a.target)}`,badge:dBadge(a.target,a.status==='완료'),late:d>a.target&&a.status!=='완료',done:a.status==='완료'});
-        });
+        pushActions(out,t,d,7.5);
         break;}
     }
   }
@@ -700,6 +703,13 @@ function itemsOn(d){
   out.sort((a,b)=>a.ord-b.ord||(a.cyc&&b.cyc?CYCLES.indexOf(a.cyc)-CYCLES.indexOf(b.cyc):0)||(a.time||'99').localeCompare(b.time||'99')||gv(a).localeCompare(gv(b))||String(a.title).localeCompare(String(b.title)));
   return out;
 }
+function pushActions(out,t,d,ord){
+  (t.actions||[]).forEach(a=>{
+    const ar=range(a.target,a.status,a.end||lastOf(a,'완료'),[t.receivedDate,a.start].filter(isValidDate).sort().pop());
+    if(inR(d,ar))out.push({t,sub:a,ord,time:'',title:'↳ '+(a.name||'(이름 없음)'),meta:`${t.title} · ${a.status} · 목표 ${mmdd(a.target)}`,badge:dBadge(a.target,a.status==='완료'),late:d>a.target&&a.status!=='완료',done:a.status==='완료'});
+  });
+}
+const subLabel=t=>(t.type==='oneoff'?'일회성':'설비')+' Action';
 function stalledRows(){
   const T=today(),rows=[];
   for(const t of tasks){
@@ -708,7 +718,7 @@ function stalledRows(){
       if(isValidDate(key)&&key<T)rows.push({t,kind:'지연',days:diffDays(key,T),key,st:t.status});
       else if(isValidDate(rec)&&diffDays(rec,T)>=30)rows.push({t,kind:'장기',days:diffDays(rec,T),key,st:t.status});
     }
-    if(t.type==='equipment'&&t.status!=='완료')(t.actions||[]).forEach(a=>{
+    if((t.type==='equipment'||t.type==='oneoff')&&t.status!=='완료')(t.actions||[]).forEach(a=>{
       if(a.status!=='완료'&&isValidDate(a.target)&&a.target<T)rows.push({t,sub:a,kind:'지연',days:diffDays(a.target,T),key:a.target,st:a.status});
     });
   }
@@ -726,7 +736,7 @@ function chipEl(it,d){
     const cb=el('input',{type:'checkbox',title:it.win?'이 기간(주/월) 수행 완료 체크':'이 날짜 수행 완료 체크',checked:it.done,onclick:e=>e.stopPropagation(),onchange:e=>{const k=it.okey||d;it.t.done=it.t.done||{};if(e.target.checked)it.t.done[k]=d;else delete it.t.done[k];save();renderDash();}});
     top.append(cb);
   }
-  top.append(el('span',{class:'tag'},it.sub?'설비 Action':TYPES[ty].label));
+  top.append(el('span',{class:'tag'},it.sub?subLabel(it.t):TYPES[ty].label));
   if(it.cyc)top.append(el('span',{class:'cyc cyc-'+CYCLES.indexOf(it.cyc)},it.cyc));
   const fl=it.flag||(it.late?'지연':'');
   if(fl)top.append(el('span',{class:'flag'+(fl==='취소'||fl==='지연'?' x':''),title:fl==='지연'?`예정일 ${it.badge.text.replace('D+','')}일 경과 · 완료 처리 전까지 매일 표시`:null},fl==='변경'?'일정변경':fl));
@@ -736,7 +746,9 @@ function chipEl(it,d){
   if(it.meta)c.append(el('div',{class:'mt'},it.meta));
   return c;
 }
-function renderDash(){
+function fixWeekbar(){const wb=document.querySelector('#view-dash .weekbar');if(wb&&wb.offsetHeight)$('#view-dash').style.setProperty('--wbh',wb.offsetHeight+'px');}
+window.addEventListener('resize',fixWeekbar);
+function renderDash(){setTimeout(fixWeekbar,0);
   const mon=mondayOf(weekRef),T=today();const days=[...Array(7)].map((_,i)=>addDays(mon,i));
   $('#weekLbl').textContent=weekLabel(mon);
   const hr=el('tr',{},...days.map(d=>{const w=dow(d),hol=HOL.has(d);
@@ -749,7 +761,7 @@ function renderDash(){
   const pb=el('div',{class:'pb'});
   if(!rows.length)pb.append(el('div',{class:'hint'},'지연되거나 장기 정체된 업무가 없습니다.'));
   else pb.append(el('table',{class:'list'},el('tr',{},el('th',{},'구분'),el('th',{},'업무명'),el('th',{},'기준일'),el('th',{},'현황'),el('th',{},'상태')),
-    ...rows.map(r=>el('tr',{class:'row',onclick:()=>openTask(r.t.id,r.sub&&r.sub.id)},el('td',{},el('span',{class:'tb c-'+r.t.type},r.sub?'설비 Action':TYPES[r.t.type].label)),
+    ...rows.map(r=>el('tr',{class:'row',onclick:()=>openTask(r.t.id,r.sub&&r.sub.id)},el('td',{},el('span',{class:'tb c-'+r.t.type},r.sub?subLabel(r.t):TYPES[r.t.type].label)),
       el('td',{},r.sub?`${r.sub.name} (${r.t.title})`:r.t.title),el('td',{},r.key||''),el('td',{},r.st||''),
       el('td',{class:r.kind==='지연'?'over-t':''},r.kind==='지연'?`${r.days}일 지연`:`접수 후 ${r.days}일`)))));
   p.append(pb);
@@ -761,7 +773,7 @@ let listType='all',listQ='',hideDone=false;
 function summary(t){
   switch(t.type){
     case 'periodic':return {sub:`${t.cycle} · ${periodicRuleText(t)}`,date:`시작 ${t.baseDate}`,who:''};
-    case 'oneoff':return {sub:`${t.subcat} · ${t.importance||'-'}/${t.urgency||'-'}`,date:`예정 ${t.dueDate}`,who:t.requester};
+    case 'oneoff':{const a=t.actions||[];return {sub:`${t.subcat} · ${t.importance||'-'}/${t.urgency||'-'}`+(a.length?` · Action ${a.filter(x=>x.status==='완료').length}/${a.length}`:''),date:`예정 ${t.dueDate}`,who:t.requester};}
     case 'facility':return {sub:'',date:`수리예정 ${t.repairDate}`,who:t.manager};
     case 'equipment':{const a=t.actions||[];return {sub:t.subcat+(a.length?` · Action ${a.filter(x=>x.status==='완료').length}/${a.length}`:''),date:`예정 ${t.dueDate}`,who:t.manager};}
     case 'meeting':return {sub:t.kind+(t.kind==='정기'&&t.repeat!=='없음'?`(${meetingRuleText(t)})`:''),date:`${t.date} ${t.startTime||''}`,who:t.host};
@@ -1049,8 +1061,10 @@ function buildSheets(){
   return [
     ['주기업무',[['업무명','주기','반복 규칙','적용 시작일','수행체크 횟수','최근 수행체크일','메모','등록일'],
       ...by('periodic').map(t=>{const ds=Object.entries(t.done||{}).map(([k,v])=>isValidDate(String(v))?v:k).sort();return [t.title,t.cycle,periodicRuleText(t),t.baseDate,ds.length,ds[ds.length-1]||'',t.memo,t.created];})]],
-    ['일회성업무',[['업무명','구분','중요도','긴급도','접수일','완료요청일','완료예정일','현황','현황 변경일','진행이력','경과일','요청의뢰자','협조자','메모'],
-      ...by('oneoff').map(t=>[t.title,t.subcat,t.importance,t.urgency,t.receivedDate,t.requestDate,t.dueDate,t.status,cd(t),hs(t),elapsed(t),t.requester,t.collaborator,t.memo])]],
+    ['일회성업무',[['업무명','구분','중요도','긴급도','접수일','완료요청일','완료예정일','현황','현황 변경일','진행이력','경과일','요청의뢰자','협조자','Action Item(완료/전체)','메모'],
+      ...by('oneoff').map(t=>{const a=t.actions||[];return [t.title,t.subcat,t.importance,t.urgency,t.receivedDate,t.requestDate,t.dueDate,t.status,cd(t),hs(t),elapsed(t),t.requester,t.collaborator,`${a.filter(x=>x.status==='완료').length}/${a.length}`,t.memo];})]],
+    ['일회성_ActionItem',[['일회성 업무명','구분','Item명','시작일','완료목표일','종료일','현황','현황 변경일','진행이력'],
+      ...by('oneoff').flatMap(t=>(t.actions||[]).map(a=>[t.title,t.subcat,a.name,a.start,a.target,a.end,a.status,cd(a),hs(a)]))]],
     ['시설',[['업무명','접수일','완료요청일','수리예정일','담당자','현황','현황 변경일','진행이력','경과일','메모'],
       ...by('facility').map(t=>[t.title,t.receivedDate,t.requestDate,t.repairDate,t.manager,t.status,cd(t),hs(t),elapsed(t),t.memo])]],
     ['설비',[['업무명','구분','접수일','완료요청일','완료예정일','담당자','현황','현황 변경일','진행이력','경과일','Action Item(완료/전체)','메모'],
@@ -1272,7 +1286,7 @@ function fillField(k,text){
 }
 function isQuery(t){return /(오늘|내일|이번\s*주|다음\s*주|지연|밀린|정체|급한|남은)/.test(t)&&/(업무|일정|뭐|무엇|알려|보여|있어|있나|확인|목록|현황|\?)/.test(t)&&!/(등록|추가|입력|잡아|넣어|만들)/.test(t);}
 function answerQuery(t){
-  const line=it=>`• [${it.sub?'설비 Action':TYPES[it.t.type].label}] ${it.title}${it.meta?' — '+it.meta:''}`;
+  const line=it=>`• [${it.sub?subLabel(it.t):TYPES[it.t.type].label}] ${it.title}${it.meta?' — '+it.meta:''}`;
   if(/지연|밀린|정체|남은/.test(t)){const r=stalledRows();bot(r.length?`지연·장기 미완료 ${r.length}건:\n`+r.slice(0,15).map(x=>`• [${TYPES[x.t.type].label}] ${x.sub?x.sub.name+' ('+x.t.title+')':x.t.title} — ${x.kind==='지연'?x.days+'일 지연':'접수 후 '+x.days+'일'}`).join('\n'):'지연되거나 장기 정체된 업무가 없어요.');return;}
   if(/주/.test(t)){const mon=mondayOf(/다음\s*주/.test(t)?addDays(today(),7):today());
     const txt=[...Array(7)].map((_,i)=>{const d=addDays(mon,i);const its=itemsOn(d);return `▶ ${WD[dow(d)]} ${mmdd(d)} (${its.length}건)`+(its.length?'\n'+its.map(line).join('\n'):'');}).join('\n');
@@ -1335,7 +1349,7 @@ periodic(주기업무): title*, cycle*(${CYCLES.join('|')}), rule(반복 규칙 
   rule 형식: {"type":"date|nth|week|month","day":1~31(31=말일),"n":1~5 또는 -1(마지막),"wd":0~6(일=0,월=1…토=6, week에서 null이면 주 전체),"month":1~12(연간),"qm":1~3(분기 적용월: 1=1·4·7·10월,2=2·5·8·11월,3=3·6·9·12월)}
   예) 매월 15일 → {"type":"date","day":15} / 매월 둘째 화요일 → {"type":"nth","n":2,"wd":2} / 매월 2주차 화요일 → {"type":"week","n":2,"wd":2} / 매월 마지막 주(요일 무관) → {"type":"week","n":-1,"wd":null} / 매년 3월(날짜 무관) → cycle 연간, {"type":"month","month":3} / 매년 3월 둘째 월요일 → {"type":"nth","n":2,"wd":1,"month":3} / 매주 수요일 → cycle 주간, {"wd":3}
   "N주차"는 week, "N번째 X요일"은 nth로 구분한다.
-oneoff(일회성업무): title*, subcat*(${ONEOFF_CATS.join('|')}), importance*(A|B|C — A가 가장 중요: ${GRADES.map(g=>g+'='+IMP_LONG[g]).join('; ')}), urgency*(A|B|C — A가 가장 긴급: ${GRADES.map(g=>g+'='+URG_LONG[g]).join('; ')}) — 사용자가 말하지 않으면 추정값을 choices로 제안하되 확인받는다, receivedDate, requestDate*(완료요청일), dueDate*(완료예정일), requester(요청의뢰자), collaborator(협조자), memo
+oneoff(일회성업무): title*, subcat*(${ONEOFF_CATS.join('|')}), importance*(A|B|C — A가 가장 중요: ${GRADES.map(g=>g+'='+IMP_LONG[g]).join('; ')}), urgency*(A|B|C — A가 가장 긴급: ${GRADES.map(g=>g+'='+URG_LONG[g]).join('; ')}) — 사용자가 말하지 않으면 추정값을 choices로 제안하되 확인받는다, receivedDate, requestDate*(완료요청일), dueDate*(완료예정일), requester(요청의뢰자), collaborator(협조자), memo, actions(세부 Action Item 배열 [{"name":"","start":"YYYY-MM-DD","target":"YYYY-MM-DD"}] — 사용자가 말한 경우만)
 facility(시설): title*, receivedDate, requestDate*(완료 요청일), repairDate*(수리 예정일), manager(담당자), memo
 equipment(설비): title*, subcat*(${EQ_CATS.join('|')}), receivedDate, requestDate*(완료 요청일), dueDate*(완료 예정일), manager(담당자), memo, actions(세부 Action Item 배열 [{"name":"","start":"YYYY-MM-DD","target":"YYYY-MM-DD"}] — 사용자가 말한 경우만)
 meeting(회의): kind*(정기|일회성), title*(회의명), date*(회의일), startTime*, endTime, repeat(${REPEATS.join('|')} — 정기일 때), mrule(repeat가 매월일 때 규칙 {"type":"date|nth|week","day","n","wd"} — 형식은 주기업무 rule과 동일, date는 규칙에 맞는 첫 회의일), place, hostDept(주최부서), host(주최자), attendDept(참석부서), agenda(회의안건), result(회의결과) — 정기회의는 안건·결과가 회차(날짜)별로 따로 저장되므로 해당 회차 날짜를 sessionDate(YYYY-MM-DD)로 함께 넣는다
@@ -1452,7 +1466,7 @@ function renderHolidays(){
 function isWorkdayBase(s){const w=dow(s);return w!==0&&w!==6;}
 
 /* ================= 화면 전환 / 설정 ================= */
-function setView(v){view=v;document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+function setView(v){view=v;setTimeout(fixWeekbar,0);document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
   if(v==='dash')renderDash();if(v==='list')renderList();if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();}
 function fillSettings(){$('#sKey').value=settings.apiKey||'';$('#sModel').value=settings.model||'';$('#sUseAI').checked=!!settings.useAI;$('#sLead').value=settings.leadDefault;}
@@ -1461,6 +1475,7 @@ function setChat(open,noSave){
   const b=$('#btnChat');b.textContent=open?'💬 챗봇 닫기':'💬 챗봇 열기';b.classList.toggle('on',!open);
   if(!noSave)try{localStorage.setItem('wm_chat_open',open?'1':'0');}catch(e){}
   if(open)setTimeout(()=>$('#cInput').focus(),260);
+  setTimeout(fixWeekbar,300);
 }
 function bind(){
   $('#btnChat').onclick=()=>setChat($('#app').classList.contains('chat-off'));
