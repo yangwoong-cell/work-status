@@ -377,7 +377,8 @@ const URG_DESC={A:'매우 긴급',B:'긴급',C:'여유'};
 const URG_LONG={A:'즉시 착수 (당일~2 Workday 내)',B:'이번 주 내 처리 (1주 이내)',C:'기한 여유, 일정에 맞춰 처리'};
 const ONEOFF_ST=['미수행','검토중','회신대기중','완료','보류'];
 const FAC_ST=['의뢰완료','수리일확정','완료','보류'];
-const EQ_CATS=['PM오더','세금계산서(100만원 미만)','세금계산서(100만원 이상)','법인카드(100만원 미만)','법인카드(100만원 이상)'];
+const EQ_CATS=['PM오더','세금계산서(100만원 미만)','세금계산서(100만원 이상)','법인카드(100만원 미만)','법인카드(100만원 이상)','정산 해당없음'];
+const EQ_ST_NA=['접수','검토중','진행중','완료','보류'];
 const EQ_ST_PM=['접수','예산반영요청','PM오더상신','발주','작업대기중','완료','보류'];
 const EQ_ST_LO=['접수','사양서 송부','견적접수','작업의뢰','예산반영요청','정산품의','완료'];
 const EQ_ST_HI=['접수','사양서 송부','견적접수','사전품의완료','작업의뢰','예산반영요청','정산품의','완료'];
@@ -498,7 +499,7 @@ function applyHol(){
 }
 
 /* ================= 업무 모델 ================= */
-function eqStatus(c){if(!c||c==='PM오더')return EQ_ST_PM;return c.includes('미만')?EQ_ST_LO:EQ_ST_HI;}
+function eqStatus(c){if(!c||c==='PM오더')return EQ_ST_PM;if(c==='정산 해당없음')return EQ_ST_NA;return c.includes('미만')?EQ_ST_LO:EQ_ST_HI;}
 function statusOpts(t){switch(t.type){case 'oneoff':return ONEOFF_ST;case 'facility':return FAC_ST;case 'equipment':return eqStatus(t.subcat);default:return null;}}
 const isDone=t=>t.status==='완료';
 function newAction(){const T=today();return {id:uid(),name:'',start:T,target:T,end:'',status:'검토중',history:[{s:'검토중',d:T}]};}
@@ -1149,6 +1150,7 @@ function matchOpt(opts,text,k){
   if(k==='importance'||k==='urgency'){const m=t.match(/[abc]/);if(m)return m[0].toUpperCase();if(/상|높/.test(t))return 'A';if(/중|보통/.test(t))return 'B';if(/하|낮/.test(t))return 'C';}
   if(k==='subcat'&&opts===EQ_CATS){
     if(/pm/.test(t))return 'PM오더';
+    if(/정산|해당없|무상|자체/.test(t))return '정산 해당없음';
     const kind=/세금|계산서/.test(t)?'세금계산서':/법인|카드/.test(t)?'법인카드':null;const amt=/이상/.test(t)?'이상':/미만|이하/.test(t)?'미만':null;
     if(kind&&amt)return `${kind}(100만원 ${amt})`;return null;
   }
