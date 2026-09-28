@@ -330,6 +330,21 @@ td.rname:hover .rmove{opacity:1}
 table.dft td{vertical-align:middle}
 table.dft th{white-space:nowrap}
 .qnc{white-space:nowrap;display:inline-block}
+#alertBox{position:fixed;top:14px;left:50%;transform:translateX(-50%);z-index:60;display:flex;flex-direction:column;gap:8px;width:min(420px,92vw)}
+.alertItem{position:relative;background:#12301f;border:1px solid #3ddc97;border-radius:10px;padding:12px 38px 12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.5);animation:ain .25s}
+.alertItem .at{font-weight:800;color:#3ddc97;margin-bottom:3px}
+.alertItem .am{font-size:13px}
+.alertItem .ax{position:absolute;top:8px;right:8px;border:0;background:transparent;color:var(--sub);font-size:14px}
+@keyframes ain{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+.rc.ritm{align-items:stretch}
+.ritlist{display:flex;flex-wrap:wrap;gap:3px;justify-content:center}
+.rc.wide .ritlist{justify-content:flex-start}
+.rit{border:1px dashed var(--line);background:transparent;color:var(--sub);border-radius:5px;padding:2px 6px;font-size:11.5px;line-height:1.4;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rit:hover:not(:disabled){border-color:var(--accent);color:var(--text)}
+.rit.on{background:var(--ok2);border:1px solid #1f5a40;color:var(--ok);font-weight:700}
+.rit.miss{border-color:#6a2a30;color:#ff8a8a}
+.rc.ritm .rtx{text-align:center}
+.xbtn:disabled{opacity:.3;cursor:default}
 /* 설정·공휴일 */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-width:1000px}
 .card h3{margin:0 0 6px;font-size:14px}
@@ -536,6 +551,7 @@ const FORMS={
     f('wdays','수행 요일 (선택 · 여러 개 가능)','weekdays',0,null,{showIf:d=>d.cycle==='주간',allowEmpty:true,hint:'요일을 고르면 그 요일마다 대시보드에서 수행 여부를 체크합니다 (목표는 1회 수행 기준, 주간 달성도 = 요일별 평균)\n고르지 않으면 한 주 전체 기간으로 목표를 채웁니다 (예: 주 3회)'}),
     f('mslots','수행 주차·요일 (선택 · 여러 개 가능)','mslots',0,null,{showIf:d=>d.cycle==='월간',hint:'"둘째 토요일"처럼 그 달의 n번째 요일입니다. 해당 날짜가 있는 주의 대시보드에 표시되고 그날 수행 여부를 체크합니다'}),
     f('mode','옵션','seg',1,['없음','타이머','횟수'],{hint:'없음: 수행/미수행 체크 · 타이머: 목표 시간(분)을 채우면 완료 · 횟수: 목표 횟수를 채우면 완료'}),
+    f('items','세부 항목 (선택)','ritems',0,null,{showIf:d=>d.mode==='없음'}),
     f('target','목표 (타이머=분 / 횟수=회)','number',0,null,{showIf:d=>d.mode!=='없음'}),
     f('minVal','최소 버전 기준 (A등급 · 선택)','number',0,null,{showIf:d=>d.grade==='A'&&d.mode!=='없음',hint:'바쁜 날 이만큼만 해도 연속기록이 유지됩니다 (예: 목표 30분 / 최소 10분). 체크형 A등급은 체크 버튼을 한 번 더 누르면 "최소"로 기록 (달성도 50%)'}),
     f('startDate','시작일','date',1),f('state','상태','seg',0,['진행','중지'],{hint:'중지하면 이후 기간은 집계에서 빠지고 기존 기록은 유지됩니다'}),f('memo','메모','textarea')],
@@ -605,6 +621,7 @@ function load(){
   applyHol();
   tasks.forEach(t=>{if(t.type==='meeting')migrateMeeting(t);});
   loadRoutines();loadDefects();
+  setTimeout(()=>rCheckTimers(true),500);
 }
 function sanitizeTasks(arr){
   if(!Array.isArray(arr))return [];
@@ -1168,7 +1185,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves','ritems'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1188,6 +1205,7 @@ function buildField(d,fd){
     case 'weekdays':c=weekdaysField(d,fd.k,fd.allowEmpty);break;
     case 'mslots':c=mslotsField(d,fd.k);break;
     case 'causes':c=causesField(d);break;
+    case 'ritems':c=ritemsField(d);break;
     case 'dlog':c=dlogField(d);break;
     case 'sessions':c=sessionsField(d);break;
     case 'prule':c=ruleEditor(d,fd.k);break;
@@ -1272,7 +1290,7 @@ function buildSheets(){
       ...routines.map(r=>{const s=rStreak(r);const ym=today().slice(0,7);const x=pd(ym+'-01');const last=fmt(new Date(x.getFullYear(),x.getMonth()+1,0));
         return [r.title,r.grade,R_W[r.grade],r.cycle,schedText(r),r.mode,r.mode==='없음'?'':`${r.target}${unit(r)}`,r.minVal?`${r.minVal}${unit(r)}`:'',r.startDate,r.state,s.cur,s.best,pct(rAvg(r,ym+'-01',last)),r.memo];})]],
     ['루틴_기록',[['루틴명','등급','주기','기간','값','목표','달성률','최소 버전'],
-      ...routines.flatMap(r=>Object.keys(r.logs||{}).sort().map(k=>{const l=r.logs[k];return [r.title,r.grade,r.cycle,k,r.mode==='없음'?(l.done?'완료':l.min?'최소':''):fmtV(Number(l.v)||0),r.mode==='없음'?'':r.target,Math.round((isSched(r)?rOcc(r,k):rRatio(r,k)||0)*100)+'%',rMinMet(r,k)?'O':''];}))]],
+      ...routines.flatMap(r=>Object.keys(r.logs||{}).sort().map(k=>{const l=r.logs[k];return [r.title,r.grade,r.cycle,k,r.mode==='없음'?(rItems(r).length?rItems(r).filter(x=>l.it&&l.it[x.id]).map(x=>x.name).join(', '):(l.done?'완료':l.min?'최소':'')):fmtV(Number(l.v)||0),r.mode==='없음'?'':r.target,Math.round((isSched(r)?rOcc(r,k):rRatio(r,k)||0)*100)+'%',rMinMet(r,k)?'O':''];}))]],
     ['약속',[['약속명','일자','시간','장소','상대방','메모'],...by('appointment').map(t=>[t.title,t.date,t.time,t.place,t.partner,t.memo])]],
     ['공지',[['공지명','세부내용','시작일자','종료일자','시작시간','종료시간','사전공지일수'],...by('notice').map(t=>[t.title,t.detail,t.startDate,t.endDate,t.startTime,t.endTime,t.leadDays])]],
   ];
@@ -1737,7 +1755,9 @@ function rActive(r,k){
 function rKeys(r,from,to){const out=[];if(!isValidDate(from)||!isValidDate(to)||to<from)return out;let k=rKey(r,from),end=rKey(r,to),g=0;while(k<=end&&g++<4000){if(rActive(r,k))out.push(k);k=nextK(r,k);}return out;}
 /* 달성도 */
 const rLog=(r,k)=>(r.logs||{})[k]||null;
-function rVal(r,k){const l=rLog(r,k);if(!l)return 0;let v=Number(l.v)||0;if(r.run&&r.run.key===k)v+=(Date.now()-r.run.start)/60000;return v;}
+function rVal(r,k){const l=rLog(r,k);let v=l?(Number(l.v)||0):0;if(r.run&&r.run.key===k)v+=Math.max(0,Date.now()-r.run.start)/60000;return v;}
+const runClock=r=>{const s=Math.max(0,Math.floor((Date.now()-r.run.start)/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const runLabel=(r,k)=>`${fmtV(rVal(r,k))}/${r.target}${unit(r)} ⏱${runClock(r)}`;
 const isSched=r=>(r.cycle==='주간'&&Array.isArray(r.wdays)&&r.wdays.length>0)||(r.cycle==='월간'&&Array.isArray(r.mslots)&&r.mslots.length>0);
 function nthWeekday(y,m,n,w){
   if(n===-1){let d=new Date(y,m,0).getDate();while(new Date(y,m-1,d).getDay()!==w)d--;return fmt(new Date(y,m-1,d));}
@@ -1764,7 +1784,7 @@ function rRatio(r,k){
 }
 function rOcc(r,k){
   const l=rLog(r,k);
-  if(r.mode==='없음'){if(!l)return 0;return l.done?1:(l.min?0.5:0);}
+  if(r.mode==='없음'){const its=rItems(r);if(its.length){if(!l||!l.it)return 0;return its.filter(x=>l.it[x.id]).length/its.length;}if(!l)return 0;return l.done?1:(l.min?0.5:0);}
   const t=Number(r.target)||0;if(!t)return 0;return Math.min(1,rVal(r,k)/t);
 }
 function rMinMet(r,k){const l=rLog(r,k);if(r.grade!=='A')return false;if(r.mode==='없음')return !!(l&&l.min);const m=Number(r.minVal)||0;return m>0&&rVal(r,k)>=m;}
@@ -1781,11 +1801,38 @@ function wAvg(items){let sw=0,sv=0;items.forEach(([r,v])=>{if(v==null)return;con
 const pct=v=>v==null?'—':Math.round(v*100)+'%';
 const lvl=v=>v==null?'na':v>=0.8?'hi':v>=0.5?'mid':'lo';
 /* 기록 조작 */
-function setLog(r,k,fn){r.logs=r.logs||{};const l=r.logs[k]||{};fn(l);if(!l.done&&!l.min&&!(Number(l.v)>0))delete r.logs[k];else r.logs[k]=l;r.updated=today();saveRoutines();renderRoutine();}
+const rItems=r=>r.mode==='없음'&&Array.isArray(r.items)?r.items.filter(x=>x&&x.id&&String(x.name||'').trim()):[];
+function rItemToggle(r,k,id){setLog(r,k,l=>{l.it=l.it||{};if(l.it[id])delete l.it[id];else l.it[id]=true;if(!Object.keys(l.it).length)delete l.it;});}
+function setLog(r,k,fn){r.logs=r.logs||{};const l=r.logs[k]||{};fn(l);if(!l.done&&!l.min&&!(Number(l.v)>0)&&!(l.it&&Object.keys(l.it).length))delete r.logs[k];else r.logs[k]=l;r.updated=today();saveRoutines();renderRoutine();}
 function rToggle(r,k){setLog(r,k,l=>{if(l.done){l.done=false;if(r.grade==='A')l.min=true;}else if(l.min){l.min=false;}else l.done=true;});}
-function rAdd(r,k,n){setLog(r,k,l=>{l.v=Math.max(0,Math.round(((Number(l.v)||0)+n)*10)/10);});}
+function rAdd(r,k,n){const cap=r.mode==='타이머'&&Number(r.target)>0?Number(r.target):Infinity;setLog(r,k,l=>{l.v=Math.min(cap,Math.max(0,Math.round(((Number(l.v)||0)+n)*10)/10));});}
+let _actx=null;
+function beepCtx(){if(!_actx){const A=window.AudioContext||window.webkitAudioContext;if(A)_actx=new A();}if(_actx&&_actx.state==='suspended')_actx.resume();return _actx;}
+function beep(){try{const a=beepCtx();if(!a)return;[0,0.35,0.7].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(0.0001,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.25,a.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+t+0.28);o.connect(g);g.connect(a.destination);o.start(a.currentTime+t);o.stop(a.currentTime+t+0.3);});}catch(e){}}
+function showAlert(title,msg){
+  let b=$('#alertBox');if(!b){b=el('div',{id:'alertBox'});document.body.append(b);}
+  const item=el('div',{class:'alertItem'},el('div',{class:'at'},title),el('div',{class:'am'},msg),el('button',{class:'ax',title:'닫기',onclick:()=>item.remove()},'✕'));
+  b.append(item);setTimeout(()=>item.remove(),20000);
+}
+function notifyDone(r){
+  const msg=`'${r.title}' 목표 ${r.target}분을 채워 완료 처리했습니다.`;
+  showAlert('⏰ 루틴 완료',msg);beep();
+  try{if(window.Notification&&Notification.permission==='granted')new Notification('루틴 완료 ⏰',{body:msg,tag:'routine-'+r.id});}catch(e){}
+}
+function rCheckTimers(silent){
+  let ch=false;
+  for(const r of routines){
+    if(!r||!r.run||r.mode!=='타이머')continue;const t=Number(r.target)||0;if(!t)continue;
+    const k=r.run.key;if(rVal(r,k)>=t){delete r.run;r.logs=r.logs||{};const l=r.logs[k]||{};l.v=t;r.logs[k]=l;r.updated=today();ch=true;if(!silent)notifyDone(r);else showAlert('⏰ 루틴 완료',`'${r.title}' 목표 시간(${t}분)에 도달해 완료 처리되어 있습니다.`);}
+  }
+  if(ch){saveRoutines();if(view==='routine')renderRoutine();}
+}
 function rTimer(r,k){
-  if(r.run&&r.run.key===k){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;setLog(r,rk,l=>{l.v=Math.round(((Number(l.v)||0)+m)*10)/10;});toast(`${Math.round(m)}분 기록했습니다`);return;}
+  const cap=Number(r.target)||Infinity;
+  if(r.run&&r.run.key===k){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;setLog(r,rk,l=>{l.v=Math.min(cap,Math.round(((Number(l.v)||0)+m)*10)/10);});toast(`${Math.round(m)}분 기록했습니다`);return;}
+  if(rVal(r,k)>=cap){toast('이미 목표 시간을 달성했습니다');return;}
+  try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
+  try{beepCtx();}catch(e){}
   if(r.run){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;r.logs=r.logs||{};const l=r.logs[rk]||{};l.v=Math.round(((Number(l.v)||0)+m)*10)/10;r.logs[rk]=l;}
   r.run={key:k,start:Date.now()};saveRoutines();renderRoutine();
 }
@@ -1795,6 +1842,14 @@ const fmtV=v=>{const x=Math.round(v*10)/10;return Number.isInteger(x)?String(x):
 function rControl(r,k,{wide=false,occ=false}={}){
   const T=today(),ps=occ?k:pStart(r,k),pe=occ?k:pEnd(r,k),future=ps>T,past=pe<T,ratio=rOcc(r,k),l=rLog(r,k);
   const box=el('div',{class:'rc '+(wide?'wide ':'')+'lv-'+(ratio>=1?'full':ratio>0?'part':'none')+(future?' fut':'')});
+  if(r.mode==='없음'&&rItems(r).length){
+    const its=rItems(r),n=its.filter(x=>l&&l.it&&l.it[x.id]).length;
+    box.classList.add('ritm');
+    const list=el('div',{class:'ritlist'},...its.map(x=>{const on=!!(l&&l.it&&l.it[x.id]);
+      return el('button',{class:'rit'+(on?' on':'')+(!on&&past&&r.grade==='A'?' miss':''),disabled:future,title:future?'아직 수행일이 아닙니다':on?'클릭: 체크 해제':'클릭: 완료 체크',onclick:()=>rItemToggle(r,k,x.id)},(on?'✓ ':'')+x.name);}));
+    box.append(el('span',{class:'rtx'+(n===its.length?' lv-hi':'')},`${n}/${its.length}`),list);
+    return box;
+  }
   if(r.mode==='없음'){
     const st=l&&l.done?'done':l&&l.min?'min':'';
     const miss=!st&&past;
@@ -1806,12 +1861,12 @@ function rControl(r,k,{wide=false,occ=false}={}){
   }
   const t=Number(r.target)||0,v=rVal(r,k),running=r.run&&r.run.key===k;
   const bar=el('div',{class:'rbar'},el('i',{style:`width:${Math.min(100,t?v/t*100:0)}%`}));
-  const txt=el('span',{class:'rtx'+(running?' run':''),'data-run':running?r.id:null},`${fmtV(v)}/${t}${unit(r)}`);
+  const txt=el('span',{class:'rtx'+(running?' run':''),'data-run':running?r.id:null},running?runLabel(r,k):`${fmtV(v)}/${t}${unit(r)}`);
   const step=r.mode==='타이머'?5:1;
   const btns=el('div',{class:'rbtns'},
     el('button',{disabled:future||v<=0,title:`-${step}${unit(r)}`,onclick:()=>rAdd(r,k,-step)},'−'),
-    el('button',{disabled:future,title:`+${step}${unit(r)}`,onclick:()=>rAdd(r,k,step)},'+'));
-  if(r.mode==='타이머')btns.append(el('button',{class:'tm'+(running?' on':''),disabled:future||(past&&!running),title:running?'정지하고 기록':'타이머 시작',onclick:()=>rTimer(r,k)},running?'■':'▶'));
+    el('button',{disabled:future||(r.mode==='타이머'&&t>0&&v>=t),title:`+${step}${unit(r)}`,onclick:()=>rAdd(r,k,step)},'+'));
+  if(r.mode==='타이머')btns.append(el('button',{class:'tm'+(running?' on':''),disabled:future||(past&&!running)||(!running&&t>0&&v>=t),title:running?'정지하고 기록':(t>0&&v>=t)?'목표 시간 달성 (완료)':'타이머 시작',onclick:()=>rTimer(r,k)},running?'■':'▶'));
   if(r.grade==='A'&&Number(r.minVal)>0&&rMinMet(r,k)&&ratio<1)txt.title='최소 버전 달성 (연속기록 유지)';
   box.append(txt,bar,btns);
   return box;
@@ -1820,7 +1875,7 @@ function gradeBadge(r){return el('span',{class:'rg rg-'+r.grade,title:`${r.grade
 function rNameCell(r,list){
   const s=rStreak(r);
   const sub=[r.cycle+(schedText(r)?`(${schedText(r)})`:''),
-    r.mode==='없음'?'체크':`${r.mode} ${r.target}${unit(r)}`,r.grade==='A'&&r.mode!=='없음'&&Number(r.minVal)>0?`최소 ${r.minVal}${unit(r)}`:''].filter(Boolean).join(' · ');
+    r.mode==='없음'?(rItems(r).length?`체크 ${rItems(r).length}항목`:'체크'):`${r.mode} ${r.target}${unit(r)}`,r.grade==='A'&&r.mode!=='없음'&&Number(r.minVal)>0?`최소 ${r.minVal}${unit(r)}`:''].filter(Boolean).join(' · ');
   return el('td',{class:'rname',onclick:()=>openRoutine(r.id),title:'클릭하면 루틴 수정'},
     el('div',{class:'rn1'},gradeBadge(r),el('b',{},r.title),r.state==='중지'?el('span',{class:'hint'},'(중지)'):null,
       list?el('span',{class:'rmove'},
@@ -1938,7 +1993,24 @@ function mslotsField(d,k){
       ...rows.map(n=>el('tr',{},el('th',{},NTH(n)),...ALLDAYS.map(w=>el('td',{},el('button',{type:'button',class:has(n,w)?'on':'',onclick:()=>tog(n,w)},has(n,w)?'✓':'')))))),
     el('div',{class:'row-inline'},el('span',{class:'hint'},d[k].length?'선택: '+schedText({cycle:'월간',mslots:d[k]}):'선택 안 함 → 한 달 전체 기간으로 목표를 채웁니다'),d[k].length?el('button',{type:'button',class:'btn sm',onclick:()=>{d[k]=[];renderModal();}},'전체 해제'):null));
 }
+function ritemsField(d){
+  d.items=Array.isArray(d.items)?d.items:[];
+  const box=el('div',{class:'dlist'});
+  if(!d.items.length)box.append(el('div',{class:'hint'},'세부 항목을 넣으면 체크 칸에 항목별 버튼이 생기고, 달성도는 체크한 항목 수 ÷ 전체 항목 수로 계산됩니다. (예: 약먹기 → 머리약, 눈약, 유산균, 비타민)'));
+  d.items.forEach((x,i)=>{
+    box.append(el('div',{class:'drow'},el('span',{class:'dnum'},`${i+1}`),
+      el('input',{type:'text',value:x.name||'',placeholder:'세부 항목 이름 (예: 유산균)',oninput:e=>{x.name=e.target.value;},onkeydown:e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();d.items.push({id:uid(),name:''});renderModal();setTimeout(()=>{const t=document.querySelectorAll('.fld[data-k="items"] input[type=text]');if(t.length)t[t.length-1].focus();},30);}}}),
+      el('button',{type:'button',class:'xbtn',title:'위로',disabled:i===0,onclick:()=>{[d.items[i-1],d.items[i]]=[d.items[i],d.items[i-1]];renderModal();}},'▲'),
+      el('button',{type:'button',class:'xbtn',title:'아래로',disabled:i===d.items.length-1,onclick:()=>{[d.items[i+1],d.items[i]]=[d.items[i],d.items[i+1]];renderModal();}},'▼'),
+      el('button',{type:'button',class:'xbtn',title:'삭제',onclick:()=>{d.items.splice(i,1);renderModal();}},'✕')));
+  });
+  box.append(el('button',{type:'button',class:'btn sm',onclick:()=>{d.items.push({id:uid(),name:''});renderModal();setTimeout(()=>{const t=document.querySelectorAll('.fld[data-k="items"] input[type=text]');if(t.length)t[t.length-1].focus();},30);}},'＋ 세부 항목 추가'));
+  if(d.items.length)box.append(el('div',{class:'hint'},'Enter로 다음 항목을 바로 추가할 수 있습니다. 항목을 지워도 지난 기록의 다른 항목 체크는 유지됩니다.'));
+  return box;
+}
 function finalizeRoutine(d){
+  d.items=Array.isArray(d.items)?d.items.filter(x=>x&&String(x.name||'').trim()).map(x=>({id:x.id||uid(),name:String(x.name).trim()})):[];
+  if(d.mode!=='없음')d.items=[];
   if(d.mode==='없음'){d.target='';d.minVal='';}
   else{d.target=Number(d.target)||0;d.minVal=d.grade==='A'?(Number(d.minVal)||''):'';}
   if(d.cycle!=='일일')d.days=[...ALLDAYS];
@@ -1951,7 +2023,7 @@ function saveRoutineModal(d){
   if(d.mode!=='없음'&&!(Number(d.target)>0)){const w=$('.fld[data-k="target"]');if(w)w.classList.add('err');toast('목표 값을 입력하세요');return false;}
   finalizeRoutine(d);const i=routines.findIndex(x=>x.id===d.id);if(i>=0)routines[i]=d;else{if(routines.some(x=>typeof x.order==='number'))d.order=Math.max(...routines.map(x=>typeof x.order==='number'?x.order:0))+10;routines.push(d);}saveRoutines();renderRoutine();return true;
 }
-setInterval(()=>{if(view!=='routine')return;document.querySelectorAll('[data-run]').forEach(sp=>{const r=routines.find(x=>x.id===sp.dataset.run);if(!r||!r.run)return;const k=r.run.key;sp.textContent=`${fmtV(rVal(r,k))}/${r.target}${unit(r)} ⏱`;const b=sp.parentNode.querySelector('.rbar i');if(b)b.style.width=Math.min(100,rVal(r,k)/(Number(r.target)||1)*100)+'%';});},1000);
+setInterval(()=>{rCheckTimers(false);if(view!=='routine')return;document.querySelectorAll('[data-run]').forEach(sp=>{const r=routines.find(x=>x.id===sp.dataset.run);if(!r||!r.run)return;const k=r.run.key;sp.textContent=runLabel(r,k);const b=sp.parentNode.querySelector('.rbar i');if(b)b.style.width=Math.min(100,rVal(r,k)/(Number(r.target)||1)*100)+'%';});},1000);
 
 
 /* ================= 결함 이력 ================= */
