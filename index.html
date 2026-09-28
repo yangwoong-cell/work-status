@@ -236,8 +236,10 @@ table.list tr.cur td{background:var(--accent2)}
 .skiprow.flash{animation:fl 1.6s}
 .c-routine{background:#3a1733;border-color:#f472b6!important}
 .tb.c-routine{color:#f472b6}
-.rtbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
-.rtweek{position:static;margin:0 0 10px;padding:0}
+.rtbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:-14px;z-index:9;background:var(--bg);margin:-14px -16px 0;padding:14px 16px 10px}
+.rtweek{position:sticky;top:calc(var(--rth,58px) - 14px);z-index:8;background:var(--bg);margin:0 -16px;padding:0 16px 10px}
+table.rt thead th{position:sticky;top:calc(var(--rth,58px) + var(--rwh,42px) - 14px);z-index:7}
+table.rt thead th:first-child{border-top-left-radius:10px}table.rt thead th:last-child{border-top-right-radius:10px}
 .rsum{display:flex;gap:8px;align-items:center;margin-left:auto;flex-wrap:wrap}
 .rsum .big{font-weight:800;font-size:14px;padding:4px 10px;border-radius:8px;background:var(--panel2);border:1px solid var(--line)}
 .gsum{font-size:12px;color:var(--sub);display:inline-flex;align-items:center;gap:3px}
@@ -569,10 +571,15 @@ let tasks=[];
 let settings={apiKey:'',model:'claude-sonnet-5',useAI:true,holidayList:null,leadDefault:7};
 function load(){
   try{tasks=JSON.parse(localStorage.getItem(KEY)||'[]')||[];}catch(e){tasks=[];}
+  tasks=sanitizeTasks(tasks);
   try{Object.assign(settings,JSON.parse(localStorage.getItem(SKEY)||'{}')||{});}catch(e){}
   applyHol();
   tasks.forEach(t=>{if(t.type==='meeting')migrateMeeting(t);});
   loadRoutines();
+}
+function sanitizeTasks(arr){
+  if(!Array.isArray(arr))return [];
+  return arr.filter(t=>t&&typeof t==='object'&&t.id&&TYPES[t.type]&&t.type!=='routine').map(t=>{if(!Array.isArray(t.history))t.history=[];if(typeof t.title!=='string')t.title=String(t.title||'');return t;});
 }
 function migrateMeeting(t){
   if(!t.sessions||typeof t.sessions!=='object')t.sessions={};
@@ -892,15 +899,23 @@ function renderList(){
 function renderRows(){
   const tb=$('#listTbl');tb.innerHTML='';
   const ql=listQ.trim().toLowerCase();
-  const rows=tasks.filter(t=>(listType==='all'||t.type===listType)&&!(hideDone&&isDone(t))&&(!ql||JSON.stringify(t).toLowerCase().includes(ql)))
-    .sort((a,b)=>TYPES[a.type].ord-TYPES[b.type].ord||String(keyDate(a)||'').localeCompare(String(keyDate(b)||'')));
+  const safe=(fn,d)=>{try{return fn();}catch(e){return d;}};
+  const ordOf=t=>(TYPES[t&&t.type]||{ord:99}).ord;
+  const rows=tasks.filter(t=>t&&typeof t==='object'&&(listType==='all'||t.type===listType)&&!(hideDone&&isDone(t))&&(!ql||safe(()=>JSON.stringify(t).toLowerCase().includes(ql),true)))
+    .sort((a,b)=>ordOf(a)-ordOf(b)||String(safe(()=>keyDate(a),'')||'').localeCompare(String(safe(()=>keyDate(b),'')||'')));
   tb.append(el('tr',{},...['구분','업무명','세부','주요일자','현황','담당/관련','경과일'].map(h=>el('th',{},h))));
   if(!rows.length){tb.append(el('tr',{},el('td',{colspan:7,class:'hint',style:'text-align:center;padding:24px'},'등록된 업무가 없습니다.')));return;}
   const T=today();
-  rows.forEach(t=>{const s=summary(t);const k=keyDate(t);const over=statusOpts(t)&&!isDone(t)&&t.status!=='보류'&&isValidDate(k)&&k<T;
-    tb.append(el('tr',{class:'row'+(isDone(t)?' done':''),onclick:()=>openTask(t.id)},
-      el('td',{},el('span',{class:'tb c-'+t.type},TYPES[t.type].label)),el('td',{style:'font-weight:600'},t.title),el('td',{},s.sub||''),
-      el('td',{class:over?'over-t':''},s.date||''),el('td',{},t.status?`${t.status} (${mmdd(lastOf(t,t.status))})`:''),el('td',{},s.who||''),el('td',{},String(elapsed(t)))));});
+  let bad=0;
+  rows.forEach(t=>{
+    try{const s=summary(t)||{};const k=keyDate(t);const over=statusOpts(t)&&!isDone(t)&&t.status!=='보류'&&isValidDate(k)&&k<T;
+      tb.append(el('tr',{class:'row'+(isDone(t)?' done':''),onclick:()=>openTask(t.id)},
+        el('td',{},el('span',{class:'tb c-'+t.type},(TYPES[t.type]||{label:t.type||'기타'}).label)),el('td',{style:'font-weight:600'},t.title||'(제목 없음)'),el('td',{},s.sub||''),
+        el('td',{class:over?'over-t':''},s.date||''),el('td',{},t.status?`${t.status} (${mmdd(lastOf(t,t.status))})`:''),el('td',{},s.who||''),el('td',{},String(safe(()=>elapsed(t),'')))));}
+    catch(e){bad++;console.error('목록 표시 오류',t,e);
+      tb.append(el('tr',{class:'row',onclick:()=>openTask(t.id)},el('td',{},el('span',{class:'tb'},(TYPES[t.type]||{label:'기타'}).label)),el('td',{style:'font-weight:600'},String(t.title||'(제목 없음)')),el('td',{colspan:5,class:'hint'},'일부 정보를 표시하지 못했습니다')));}
+  });
+  if(bad)toast(`목록 ${bad}건 표시 중 오류가 있었습니다`);
 }
 function renderAll(){if(view==='routine')renderRoutine();renderDash();if(view==='list')renderList();updateMode();}
 
@@ -1586,14 +1601,14 @@ function isWorkdayBase(s){const w=dow(s);return w!==0&&w!==6;}
 /* ================= 화면 전환 / 설정 ================= */
 function setView(v){view=v;setTimeout(fixWeekbar,0);document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='dash')renderDash();if(v==='list')renderList();if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();}
+  if(v==='dash')renderDash();if(v==='list'){try{renderList();}catch(e){console.error(e);toast('업무 목록 표시 오류: '+e.message);}}if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();}
 function fillSettings(){$('#sKey').value=settings.apiKey||'';$('#sModel').value=settings.model||'';$('#sUseAI').checked=!!settings.useAI;$('#sLead').value=settings.leadDefault;}
 function setChat(open,noSave){
   $('#app').classList.toggle('chat-off',!open);
   const b=$('#btnChat');b.textContent=open?'💬 챗봇 닫기':'💬 챗봇 열기';b.classList.toggle('on',!open);
   if(!noSave)try{localStorage.setItem('wm_chat_open',open?'1':'0');}catch(e){}
   if(open)setTimeout(()=>$('#cInput').focus(),260);
-  setTimeout(fixWeekbar,300);
+  setTimeout(fixWeekbar,300);setTimeout(()=>{if(view==='routine')fixRtbar();},300);
 }
 function bind(){
   $('#btnChat').onclick=()=>setChat($('#app').classList.contains('chat-off'));
@@ -1766,6 +1781,8 @@ function rMove(r,list,dir){
   const o=list[j].order;list[j].order=r.order;r.order=o;
   saveRoutines();renderRoutine();
 }
+function fixRtbar(){const v=$('#view-routine');if(!v)return;const a=v.querySelector('.rtbar'),b=v.querySelector('.rtweek');if(a&&a.offsetHeight)v.style.setProperty('--rth',a.offsetHeight+'px');if(b&&b.offsetHeight)v.style.setProperty('--rwh',b.offsetHeight+'px');}
+window.addEventListener('resize',()=>{if(view==='routine')fixRtbar();});
 function renderRoutine(){
   const root=$('#rtRoot');if(!root||view!=='routine')return;
   const st=$('.content').scrollTop;root.innerHTML='';
@@ -1779,6 +1796,7 @@ function renderRoutine(){
   if(!routines.length){root.append(el('div',{class:'card',style:'margin-top:14px'},el('h3',{},'아직 루틴이 없습니다'),el('div',{class:'hint'},'[＋ 새 루틴]으로 개인 성장 루틴을 만들어 보세요. 등급(A 핵심 · B 성장 · C 습관), 주기(일일·주간·월간), 옵션(체크·타이머·횟수)을 정할 수 있습니다.')));return;}
   root.append(rView==='week'?routineWeek(list):routineMonth(list));
   $('.content').scrollTop=st;
+  fixRtbar();
 }
 function routineWeek(list){
   const mon=mondayOf(rWeek),T=today(),days=[...Array(7)].map((_,i)=>addDays(mon,i)),sun=days[6];
@@ -1956,7 +1974,7 @@ async function cloudStart(u){
     cloud.unsubT=ur.collection('tasks').onSnapshot({includeMetadataChanges:true},qs=>{
       cloud.pendingSnap=qs.metadata.hasPendingWrites;cloud.fromCache=qs.metadata.fromCache;
       if(!qs.metadata.hasPendingWrites||!cloud.ready){
-        const arr=qs.docs.map(d=>d.data());
+        const arr=sanitizeTasks(qs.docs.map(d=>d.data()));
         cloud.synced=new Map(arr.map(t=>[t.id,stableStr(t)]));
         tasks=arr;try{localStorage.setItem(KEY,JSON.stringify(tasks));}catch(e){}
         tasks.forEach(t=>{if(t.type==='meeting')migrateMeeting(t);});
