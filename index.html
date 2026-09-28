@@ -345,6 +345,15 @@ table.dft th{white-space:nowrap}
 .rit.miss{border-color:#6a2a30;color:#ff8a8a}
 .rc.ritm .rtx{text-align:center}
 .xbtn:disabled{opacity:.3;cursor:default}
+.alertItem.alarm{background:#2a2410;border-color:#fbbf24}
+.alertItem.alarm .at{color:#fbbf24}
+.aacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.ralm{color:#fbbf24;font-weight:700}
+.icsbg{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:40px 16px}
+.icsbox{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 18px;width:min(760px,100%);box-shadow:0 16px 50px rgba(0,0,0,.6)}
+.icsbox .hint{white-space:pre-line}
+.icsrow{width:100%;border:1px solid var(--accent-l);background:var(--accent2);border-radius:8px;padding:9px 12px;margin-top:4px}
+.icsrow .hint{white-space:pre-line}
 /* 설정·공휴일 */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-width:1000px}
 .card h3{margin:0 0 6px;font-size:14px}
@@ -554,6 +563,7 @@ const FORMS={
     f('items','세부 항목 (선택)','ritems',0,null,{showIf:d=>d.mode==='없음'}),
     f('target','목표 (타이머=분 / 횟수=회)','number',0,null,{showIf:d=>d.mode!=='없음'}),
     f('minVal','최소 버전 기준 (A등급 · 선택)','number',0,null,{showIf:d=>d.grade==='A'&&d.mode!=='없음',hint:'바쁜 날 이만큼만 해도 연속기록이 유지됩니다 (예: 목표 30분 / 최소 10분). 체크형 A등급은 체크 버튼을 한 번 더 누르면 "최소"로 기록 (달성도 50%)'}),
+    f('alarms','알람','ralarms'),
     f('startDate','시작일','date',1),f('state','상태','seg',0,['진행','중지'],{hint:'중지하면 이후 기간은 집계에서 빠지고 기존 기록은 유지됩니다'}),f('memo','메모','textarea')],
   periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea'),f('moves','회차 일정 변경','moves',0,null,{showIf:d=>d.moves&&Object.keys(d.moves).length>0}),f('skip','미수행 기록','skips',0,null,{showIf:d=>d.skip&&Object.keys(d.skip).length>0})],
   oneoff:[f('title','업무명','text',1),f('subcat','구분','select',1,ONEOFF_CATS),f('importance','중요도','seg',1,GRADES,{desc:IMP_DESC,long:IMP_LONG,hint:GRADES.map(g=>`${g}: ${IMP_LONG[g]}`).join('\n')}),f('urgency','긴급도','seg',1,GRADES,{desc:URG_DESC,long:URG_LONG,hint:GRADES.map(g=>`${g}: ${URG_LONG[g]}`).join('\n')}),
@@ -1185,7 +1195,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves','ritems'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves','ritems','ralarms'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1206,6 +1216,7 @@ function buildField(d,fd){
     case 'mslots':c=mslotsField(d,fd.k);break;
     case 'causes':c=causesField(d);break;
     case 'ritems':c=ritemsField(d);break;
+    case 'ralarms':c=ralarmsField(d);break;
     case 'dlog':c=dlogField(d);break;
     case 'sessions':c=sessionsField(d);break;
     case 'prule':c=ruleEditor(d,fd.k);break;
@@ -1756,8 +1767,8 @@ function rKeys(r,from,to){const out=[];if(!isValidDate(from)||!isValidDate(to)||
 /* 달성도 */
 const rLog=(r,k)=>(r.logs||{})[k]||null;
 function rVal(r,k){const l=rLog(r,k);let v=l?(Number(l.v)||0):0;if(r.run&&r.run.key===k)v+=Math.max(0,Date.now()-r.run.start)/60000;return v;}
-const runClock=r=>{const s=Math.max(0,Math.floor((Date.now()-r.run.start)/1000));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
-const runLabel=(r,k)=>`${fmtV(rVal(r,k))}/${r.target}${unit(r)} ⏱${runClock(r)}`;
+const runClock=(r,k)=>{const s=Math.max(0,Math.floor(rVal(r,k)*60+1e-6));return `${Math.floor(s/60)}:${String(s%60).padStart(2,'0')}`;};
+const runLabel=(r,k)=>`${fmtV(rVal(r,k))}/${r.target}${unit(r)} ⏱${runClock(r,k)}`;
 const isSched=r=>(r.cycle==='주간'&&Array.isArray(r.wdays)&&r.wdays.length>0)||(r.cycle==='월간'&&Array.isArray(r.mslots)&&r.mslots.length>0);
 function nthWeekday(y,m,n,w){
   if(n===-1){let d=new Date(y,m,0).getDate();while(new Date(y,m-1,d).getDay()!==w)d--;return fmt(new Date(y,m-1,d));}
@@ -1809,10 +1820,11 @@ function rAdd(r,k,n){const cap=r.mode==='타이머'&&Number(r.target)>0?Number(r
 let _actx=null;
 function beepCtx(){if(!_actx){const A=window.AudioContext||window.webkitAudioContext;if(A)_actx=new A();}if(_actx&&_actx.state==='suspended')_actx.resume();return _actx;}
 function beep(){try{const a=beepCtx();if(!a)return;[0,0.35,0.7].forEach(t=>{const o=a.createOscillator(),g=a.createGain();o.type='sine';o.frequency.value=880;g.gain.setValueAtTime(0.0001,a.currentTime+t);g.gain.exponentialRampToValueAtTime(0.25,a.currentTime+t+0.02);g.gain.exponentialRampToValueAtTime(0.0001,a.currentTime+t+0.28);o.connect(g);g.connect(a.destination);o.start(a.currentTime+t);o.stop(a.currentTime+t+0.3);});}catch(e){}}
-function showAlert(title,msg){
-  let b=$('#alertBox');if(!b){b=el('div',{id:'alertBox'});document.body.append(b);}
-  const item=el('div',{class:'alertItem'},el('div',{class:'at'},title),el('div',{class:'am'},msg),el('button',{class:'ax',title:'닫기',onclick:()=>item.remove()},'✕'));
-  b.append(item);setTimeout(()=>item.remove(),20000);
+function showAlert(title,msg,actions,opt){
+  opt=opt||{};let b=$('#alertBox');if(!b){b=el('div',{id:'alertBox'});document.body.append(b);}
+  const item=el('div',{class:'alertItem'+(opt.alarm?' alarm':'')},el('div',{class:'at'},title),el('div',{class:'am'},msg),el('button',{class:'ax',title:'닫기',onclick:()=>item.remove()},'✕'));
+  if(actions&&actions.length)item.append(el('div',{class:'aacts'},...actions.map(a=>el('button',{class:'btn sm'+(a.primary?' primary':''),onclick:()=>{try{a.fn();}catch(e){}item.remove();}},a.label))));
+  b.append(item);setTimeout(()=>item.remove(),opt.keep||20000);
 }
 function notifyDone(r){
   const msg=`'${r.title}' 목표 ${r.target}분을 채워 완료 처리했습니다.`;
@@ -1829,11 +1841,11 @@ function rCheckTimers(silent){
 }
 function rTimer(r,k){
   const cap=Number(r.target)||Infinity;
-  if(r.run&&r.run.key===k){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;setLog(r,rk,l=>{l.v=Math.min(cap,Math.round(((Number(l.v)||0)+m)*10)/10);});toast(`${Math.round(m)}분 기록했습니다`);return;}
+  if(r.run&&r.run.key===k){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;setLog(r,rk,l=>{l.v=Math.min(cap,Math.round(((Number(l.v)||0)+m)*100)/100);});toast(`${Math.floor(m)}분 ${Math.round((m%1)*60)}초 기록 · 누적 ${fmtV(rVal(r,rk))}분`);return;}
   if(rVal(r,k)>=cap){toast('이미 목표 시간을 달성했습니다');return;}
   try{if(window.Notification&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
   try{beepCtx();}catch(e){}
-  if(r.run){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;r.logs=r.logs||{};const l=r.logs[rk]||{};l.v=Math.round(((Number(l.v)||0)+m)*10)/10;r.logs[rk]=l;}
+  if(r.run){const m=(Date.now()-r.run.start)/60000;const rk=r.run.key;delete r.run;r.logs=r.logs||{};const l=r.logs[rk]||{};l.v=Math.round(((Number(l.v)||0)+m)*100)/100;r.logs[rk]=l;}
   r.run={key:k,start:Date.now()};saveRoutines();renderRoutine();
 }
 const unit=r=>r.mode==='타이머'?'분':r.mode==='횟수'?'회':'';
@@ -1881,7 +1893,7 @@ function rNameCell(r,list){
       list?el('span',{class:'rmove'},
         el('button',{title:'위로 이동',disabled:list.indexOf(r)<=0,onclick:e=>{e.stopPropagation();rMove(r,list,-1);}},'▲'),
         el('button',{title:'아래로 이동',disabled:list.indexOf(r)>=list.length-1,onclick:e=>{e.stopPropagation();rMove(r,list,1);}},'▼')):null),
-    el('div',{class:'rn2'},el('span',{},sub),s.cur>0?el('span',{class:'fire',title:`현재 연속 ${s.cur} · 최고 ${s.best}`},`🔥${s.cur}`):s.best>0?el('span',{class:'hint',title:'최고 연속기록'},`최고 ${s.best}`):null));
+    el('div',{class:'rn2'},el('span',{},sub),(r.alarms||[]).length?el('span',{class:'ralm',title:'알람 '+r.alarms.join(', ')+' (캘린더 내보내기로 등록)'},'🔔'+r.alarms.join('·')):null,s.cur>0?el('span',{class:'fire',title:`현재 연속 ${s.cur} · 최고 ${s.best}`},`🔥${s.cur}`):s.best>0?el('span',{class:'hint',title:'최고 연속기록'},`최고 ${s.best}`):null));
 }
 function barCol(v,label,sub){
   return el('div',{class:'bcol'},el('div',{class:'bwrap'},el('div',{class:'bfill lv-'+lvl(v),style:`height:${v==null?0:Math.max(2,v*100)}%`})),el('div',{class:'bpct lv-'+lvl(v)},pct(v)),label?el('div',{class:'blab'},label):null,sub?el('div',{class:'bsub'},sub):null);
@@ -2009,6 +2021,7 @@ function ritemsField(d){
   return box;
 }
 function finalizeRoutine(d){
+  d.alarmLead=Number(d.alarmLead)||0;
   d.items=Array.isArray(d.items)?d.items.filter(x=>x&&String(x.name||'').trim()).map(x=>({id:x.id||uid(),name:String(x.name).trim()})):[];
   if(d.mode!=='없음')d.items=[];
   if(d.mode==='없음'){d.target='';d.minVal='';}
@@ -2019,7 +2032,39 @@ function finalizeRoutine(d){
   if(d.state==='중지'){if(!isValidDate(d.pausedAt))d.pausedAt=today();}else delete d.pausedAt;
   d.updated=today();d.logs=d.logs||{};return d;
 }
+function exportRoutineIcs(d){
+  if(!String(d.title||'').trim()){const w=$('.fld[data-k="title"]');if(w)w.classList.add('err');toast('루틴명을 먼저 입력하세요');return;}
+  const c=clone(d);if(!saveRoutineModal(c))return;
+  mNew=false;mDraft=clone(routines.find(x=>x.id===c.id)||c);renderModal();
+  const r=routines.find(x=>x.id===c.id)||c;
+  if(r.state==='중지'){toast('중지된 루틴은 캘린더에 추가할 수 없습니다');return;}
+  const {text,count}=buildIcs([r],Number(r.alarmLead)||0);
+  download(`루틴알람_${String(r.title).replace(/[\\/:*?"<>|\s]+/g,'_')}.ics`,new Blob([text],{type:'text/calendar;charset=utf-8'}));
+  toast(`저장했습니다 · 캘린더 파일을 받았습니다 (일정 ${count}개)`);
+}
+function ralarmsField(d){
+  d.alarms=Array.isArray(d.alarms)?d.alarms:[];
+  const box=el('div',{class:'dlist'});
+  if(!d.alarms.length)box.append(el('div',{class:'hint'},'알람 시각을 넣고 루틴 화면의 [📅 캘린더로 내보내기]로 아이폰 캘린더에 등록하면, 그 시각에 캘린더 알림이 옵니다. 여러 개 넣을 수 있습니다 (예: 08:00, 21:00).'));
+  d.alarms.forEach((t,i)=>box.append(el('div',{class:'drow',style:'align-items:center'},el('span',{class:'dnum'},`🔔 ${i+1}`),timeField(t,v=>{d.alarms[i]=v;}),el('button',{type:'button',class:'xbtn',title:'알람 삭제',onclick:()=>{d.alarms.splice(i,1);renderModal();}},'✕'))));
+  box.append(el('div',{class:'row-inline',style:'margin:0'},
+    el('button',{type:'button',class:'btn sm',onclick:()=>{d.alarms.push(d.alarms.length?addHour(d.alarms[d.alarms.length-1],1):'08:00');renderModal();}},'＋ 알람 추가')));
+  if(d.alarms.length){
+    const lead=Number(d.alarmLead)||0;
+    const prev=(()=>{try{const c=finalizeRoutine(clone(d));return icsRule(c).txt+` · ${icsFirstDate(c)}부터`;}catch(e){return '';}})();
+    box.append(el('div',{class:'icsrow'},
+      el('div',{class:'row-inline',style:'margin:0'},el('b',{style:'font-size:12.5px'},'📅 캘린더 알림'),el('span',{class:'hint'},prev)),
+      el('div',{class:'row-inline',style:'margin:6px 0 0'},el('span',{class:'hint'},'알림 시점'),
+        el('div',{class:'seg'},...[[0,'정각'],[5,'5분 전'],[10,'10분 전'],[30,'30분 전']].map(([v,l])=>el('button',{type:'button',class:lead===v?'on':'',onclick:()=>{d.alarmLead=v;renderModal();}},l))),
+        el('div',{class:'spacer'}),
+        el('button',{type:'button',class:'btn primary sm',onclick:()=>exportRoutineIcs(d)},'📅 저장하고 캘린더에 추가')),
+      el('div',{class:'hint',style:'margin-top:6px'},'루틴을 저장한 뒤 이 루틴의 알람만 담긴 캘린더 파일(.ics)을 받습니다. 아이폰 사파리에서는 바로 "캘린더에 추가" 화면이 뜹니다 → [모두 추가]\n알람 시각·요일을 바꾸면 캘린더의 예전 "[루틴] '+(d.title||'루틴명')+'" 일정을 지우고 다시 추가하세요.')));
+  }
+  return box;
+}
 function saveRoutineModal(d){
+  d.alarms=Array.isArray(d.alarms)?[...new Set(d.alarms.filter(x=>/^\d{2}:\d{2}$/.test(x)))].sort():[];
+
   if(d.mode!=='없음'&&!(Number(d.target)>0)){const w=$('.fld[data-k="target"]');if(w)w.classList.add('err');toast('목표 값을 입력하세요');return false;}
   finalizeRoutine(d);const i=routines.findIndex(x=>x.id===d.id);if(i>=0)routines[i]=d;else{if(routines.some(x=>typeof x.order==='number'))d.order=Math.max(...routines.map(x=>typeof x.order==='number'?x.order:0))+10;routines.push(d);}saveRoutines();renderRoutine();return true;
 }
@@ -2122,6 +2167,70 @@ function fillDefectTable(){
       el('td',{},String(dElapsed(d)))));
   });
   box.append(tbl);
+}
+
+
+/* ================= 루틴 알람 → 캘린더(.ics) ================= */
+const ICS_WD=['SU','MO','TU','WE','TH','FR','SA'];
+function icsRule(r){
+  const byday=a=>ALLDAYS.filter(x=>a.includes(x)).map(x=>ICS_WD[x]).join(',');
+  if(r.cycle==='일일'){const ds=r.days&&r.days.length?r.days:ALLDAYS;return ds.length===7?{rule:'FREQ=DAILY',txt:'매일'}:{rule:'FREQ=WEEKLY;BYDAY='+byday(ds),txt:'매주 '+ALLDAYS.filter(x=>ds.includes(x)).map(x=>WD[x]).join('·')};}
+  if(r.cycle==='주간'){if(isSched(r))return {rule:'FREQ=WEEKLY;BYDAY='+byday(r.wdays),txt:'매주 '+schedText(r)};return {rule:'FREQ=WEEKLY;BYDAY=MO',txt:'매주 월요일 (요일 미지정 → 주 시작일)'};}
+  if(isSched(r))return {rule:'FREQ=MONTHLY;BYDAY='+r.mslots.map(x=>`${x.n}${ICS_WD[x.w]}`).join(','),txt:'매월 '+schedText(r)};
+  return {rule:'FREQ=MONTHLY;BYMONTHDAY=1',txt:'매월 1일 (주차 미지정 → 월 시작일)'};
+}
+function icsFirstDate(r){
+  let d=[today(),r.startDate].filter(isValidDate).sort().pop();
+  for(let i=0;i<500;i++){
+    const ok=r.cycle==='일일'?(r.days&&r.days.length?r.days:ALLDAYS).includes(dow(d)):isSched(r)?rSchedIn({...r,startDate:'1900-01-01',state:'진행'},d,d).length>0:r.cycle==='주간'?dow(d)===1:d.slice(8)==='01';
+    if(ok)return d;d=addDays(d,1);
+  }
+  return today();
+}
+function icsEsc(t){return String(t||'').replace(/\\/g,'\\\\').replace(/;/g,'\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');}
+function icsFold(line){const enc=new TextEncoder();if(enc.encode(line).length<=74)return line;const out=[];let cur='',len=0;for(const ch of line){const l=enc.encode(ch).length;if(len+l>(out.length?73:74)){out.push(cur);cur='';len=0;}cur+=ch;len+=l;}out.push(cur);return out.join('\r\n ');}
+function buildIcs(list,lead){
+  const now=new Date(),stamp=now.toISOString().replace(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
+  const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//work-status//routine-alarm//KO','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:루틴 알람','X-WR-TIMEZONE:Asia/Seoul',
+    'BEGIN:VTIMEZONE','TZID:Asia/Seoul','BEGIN:STANDARD','DTSTART:19700101T000000','TZOFFSETFROM:+0900','TZOFFSETTO:+0900','TZNAME:KST','END:STANDARD','END:VTIMEZONE'];
+  let n=0;
+  for(const r of list){
+    const rl=icsRule(r),d0=icsFirstDate(r).replace(/-/g,'');
+    const its=rItems(r);
+    const desc=[`등급 ${r.grade} (${R_GDESC[r.grade]})`,r.mode==='타이머'?`목표 ${r.target}분`:r.mode==='횟수'?`목표 ${r.target}회`:'',its.length?'세부 항목: '+its.map(x=>x.name).join(', '):'',`반복: ${rl.txt}`,r.memo||''].filter(Boolean).join('\n');
+    for(const hm of r.alarms){
+      const [h,m]=hm.split(':');n++;
+      L.push('BEGIN:VEVENT',`UID:routine-${r.id}-${h}${m}@work-status`,`DTSTAMP:${stamp}`,`DTSTART;TZID=Asia/Seoul:${d0}T${h}${m}00`,`DURATION:PT${r.mode==='타이머'&&Number(r.target)>0?Math.min(240,Number(r.target)):10}M`,
+        `RRULE:${rl.rule}`,`SUMMARY:${icsEsc('[루틴] '+r.title)}`,`DESCRIPTION:${icsEsc(desc)}`,'TRANSP:TRANSPARENT',
+        'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc('[루틴] '+r.title)}`,`TRIGGER:${lead>0?'-PT'+lead+'M':'PT0M'}`,'END:VALARM','END:VEVENT');
+    }
+  }
+  L.push('END:VCALENDAR');
+  return {text:L.map(icsFold).join('\r\n')+'\r\n',count:n};
+}
+function openIcsDialog(){
+  const list=routines.filter(r=>r&&r.state!=='중지'&&Array.isArray(r.alarms)&&r.alarms.length).sort(rCmp);
+  const old=$('#icsDlg');if(old)old.remove();
+  const sel=new Set(list.map(r=>r.id));let lead=0;
+  const dlg=el('div',{id:'icsDlg',class:'icsbg',onclick:e=>{if(e.target===dlg)dlg.remove();}});
+  const body=el('div',{class:'icsbox'});
+  const draw=()=>{
+    body.innerHTML='';
+    body.append(el('div',{class:'mhead',style:'padding:0 0 10px'},el('h2',{},'📅 캘린더로 내보내기'),el('div',{class:'spacer'}),el('button',{class:'btn sm',onclick:()=>dlg.remove()},'✕')));
+    if(!list.length){body.append(el('div',{class:'hint',style:'padding:10px 0'},'알람이 설정된 루틴이 없습니다. 루틴 수정 창의 "알람" 칸에서 시각을 먼저 넣어주세요.'));return;}
+    body.append(el('div',{class:'hint',style:'margin-bottom:8px'},'내보낼 루틴을 고르세요. 알람 시각마다 반복 일정 1개가 만들어집니다.'));
+    const tbl=el('table',{class:'list'},el('tr',{},el('th',{},el('input',{type:'checkbox',checked:sel.size===list.length,onchange:e=>{list.forEach(r=>e.target.checked?sel.add(r.id):sel.delete(r.id));draw();}})),el('th',{},'루틴'),el('th',{},'알람'),el('th',{},'캘린더 반복')));
+    list.forEach(r=>tbl.append(el('tr',{},el('td',{},el('input',{type:'checkbox',checked:sel.has(r.id),onchange:e=>{e.target.checked?sel.add(r.id):sel.delete(r.id);draw();}})),
+      el('td',{},gradeBadge(r),' ',r.title),el('td',{},r.alarms.join(', ')),el('td',{class:'hint'},icsRule(r).txt+` · ${icsFirstDate(r)}부터`))));
+    body.append(el('div',{style:'max-height:340px;overflow:auto'},tbl));
+    body.append(el('div',{class:'row-inline'},'알림 시점',el('div',{class:'seg'},...[[0,'정각'],[5,'5분 전'],[10,'10분 전'],[30,'30분 전']].map(([v,l])=>el('button',{type:'button',class:lead===v?'on':'',onclick:()=>{lead=v;draw();}},l)))));
+    const cnt=list.filter(r=>sel.has(r.id)).reduce((a,r)=>a+r.alarms.length,0);
+    body.append(el('div',{class:'row-inline',style:'margin-top:14px'},el('span',{class:'hint'},`반복 일정 ${cnt}개`),el('div',{class:'spacer'}),
+      el('button',{class:'btn primary',disabled:!cnt,onclick:()=>{const {text,count}=buildIcs(list.filter(r=>sel.has(r.id)),lead);download(`루틴알람_${today().replace(/-/g,'')}.ics`,new Blob([text],{type:'text/calendar;charset=utf-8'}));toast(`캘린더 파일을 저장했습니다 (일정 ${count}개)`);}},'⬇ .ics 파일 받기')));
+    body.append(el('div',{class:'hint',style:'margin-top:10px;line-height:1.6'},
+      '• 아이폰: 사파리에서 이 버튼을 누르면 "캘린더에 추가" 화면이 뜹니다 → [모두 추가]\n• PC에서 받은 경우: 파일을 메일·카카오톡 등으로 아이폰에 보내서 열거나, 구글 캘린더(설정 → 가져오기)에 추가\n• 알람 시각·요일을 바꾸면 캘린더에서 기존 "[루틴]" 일정을 지우고 다시 추가하세요'));
+  };
+  draw();dlg.append(body);document.body.append(dlg);
 }
 
 /* ================= Firebase 클라우드 동기화 ================= */
