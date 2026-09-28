@@ -308,6 +308,26 @@ td.rname:hover .rmove{opacity:1}
 .mslot td{padding:2px}
 .mslot button{width:34px;height:26px;border:1px solid var(--line);background:var(--panel2);border-radius:5px;color:var(--ok);font-weight:800}
 .mslot button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.c-defect{background:#3a1f14;border-color:#f97316!important}
+.tb.c-defect{color:#fb923c}
+.dlist{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.drow{display:flex;gap:8px;align-items:flex-start;width:100%}
+.drow textarea{flex:1}
+.dnum{font-size:12px;font-weight:700;color:var(--sub);min-width:44px;padding-top:8px}
+.ddate{display:flex;flex-direction:column;gap:2px;align-items:center}
+.ddate input[type=date]{width:140px;padding:5px 7px}
+.qnc{font-size:11.5px;font-weight:700;color:var(--warn);background:var(--warn2);border:1px solid #6a5020;border-radius:4px;padding:1px 6px}
+.dst{font-size:12px;font-weight:700;border-radius:5px;padding:2px 7px;border:1px solid var(--line);background:var(--panel2)}
+.dst.ds-0{color:#ff8a8a;border-color:#6a2a30;background:var(--danger2)}
+.dst.ds-1{color:#ffb547;border-color:#6a5020;background:var(--warn2)}
+.dst.ds-2,.dst.ds-3{color:#c084fc;border-color:#5a3a7a;background:#2a1b3d}
+.dst.ds-4{color:#7aa7ff;border-color:var(--accent-l);background:var(--accent2)}
+.dst.ds-5{color:#2dd4bf;border-color:#155e59;background:#0f3436}
+.dst.ds-6{color:var(--ok);border-color:#1f5a40;background:var(--ok2)}
+.dst.ds-7{color:var(--sub)}
+table.dft td{vertical-align:middle}
+table.dft th{white-space:nowrap}
+.qnc{white-space:nowrap;display:inline-block}
 /* 설정·공휴일 */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-width:1000px}
 .card h3{margin:0 0 6px;font-size:14px}
@@ -362,6 +382,7 @@ table.hol tr.wk td.dt{color:var(--mute)}
         <button data-view="dash" class="on">주간 대시보드</button>
         <button data-view="list">업무 목록</button>
         <button data-view="routine">루틴</button>
+        <button data-view="defects">결함 이력</button>
         <button data-view="holidays">공휴일</button>
         <button data-view="settings">설정</button>
       </div>
@@ -388,6 +409,7 @@ table.hol tr.wk td.dt{color:var(--mute)}
         <div class="panel" style="margin-top:0"><div style="overflow:auto"><table class="list" id="listTbl"></table></div></div>
       </section>
       <section id="view-routine" class="view"><div id="rtRoot"></div></section>
+      <section id="view-defects" class="view"><div id="dfRoot"></div></section>
       <section id="view-holidays" class="view"><div id="holRoot"></div></section>
       <section id="view-settings" class="view">
         <div class="card">
@@ -449,7 +471,7 @@ table.hol tr.wk td.dt{color:var(--mute)}
 /* ================= 상수 ================= */
 const KEY='wm_tasks_v1', SKEY='wm_settings_v1';
 const TYPE_LIST=['periodic','oneoff','facility','equipment','meeting','appointment','notice'];
-const TYPES={notice:{label:'공지',ord:1},meeting:{label:'회의',ord:2},appointment:{label:'약속',ord:3},periodic:{label:'주기업무',ord:4},oneoff:{label:'일회성업무',ord:5},facility:{label:'시설',ord:6},equipment:{label:'설비',ord:7},routine:{label:'루틴',ord:9}};
+const TYPES={notice:{label:'공지',ord:1},meeting:{label:'회의',ord:2},appointment:{label:'약속',ord:3},periodic:{label:'주기업무',ord:4},oneoff:{label:'일회성업무',ord:5},facility:{label:'시설',ord:6},equipment:{label:'설비',ord:7},routine:{label:'루틴',ord:9},defect:{label:'결함',ord:10}};
 const CYCLES=['일일','주간','월간','분기','연간'];
 const ONEOFF_CATS=['안전','교육','소모품','CS','개발과제','표준형과제','주문형과제','자격/인증','관리','규정','자기계발','기타','OTP','수명사항'];
 const GRADES=['A','B','C'];
@@ -500,6 +522,11 @@ const DEFAULT_HOL=`2026-01-01 신정
 
 const f=(k,label,t,req=0,opts=null,extra={})=>({k,label,t,req:!!req,opts,...extra});
 const FORMS={
+  defect:[f('content','결함내용','textarea',1),f('wbs','WBS No.','text'),f('project','과제명','text'),
+    f('status','현황','status'),
+    f('qnc','QNC 발행','seg',0,['YES','NO']),f('qncNo','QNC No.','text',1,null,{showIf:d=>d.qnc==='YES'}),
+    f('resp','귀책자','seg',0,['설계','기술','생산','협력업체','기타']),f('respEtc','귀책자 (기타 내용)','text',1,null,{showIf:d=>d.resp==='기타'}),
+    f('causes','원인','causes'),f('dlog','조치현황','dlog')],
   routine:[f('title','루틴명','text',1),
     f('grade','등급','seg',1,['A','B','C'],{desc:{A:'핵심',B:'성장',C:'습관'},long:{A:'핵심 목표에 직접 연결 · 매번 수행 (바쁜 날은 최소 버전)',B:'도움이 되는 성장 활동 · 주기 안에서 목표를 채우면 됨',C:'하면 좋은 습관 · 못 해도 미수행 표시 없음'},hint:'A 핵심: 핵심 목표에 직접 연결 · 매번 수행, 바쁜 날은 최소 버전 (가중치 2.0)\nB 성장: 도움이 되는 활동 · 주기 안에서 목표를 채우면 됨 (가중치 1.5)\nC 습관: 하면 좋은 것 · 못 해도 미수행 표시 없음 (가중치 1.0)'}),
     f('cycle','주기','seg',1,['일일','주간','월간'],{hint:'주간·월간은 그 기간 안에 목표를 채우면 완료 (예: 주간 + 횟수 3 = 주 3회)'}),
@@ -575,7 +602,7 @@ function load(){
   try{Object.assign(settings,JSON.parse(localStorage.getItem(SKEY)||'{}')||{});}catch(e){}
   applyHol();
   tasks.forEach(t=>{if(t.type==='meeting')migrateMeeting(t);});
-  loadRoutines();
+  loadRoutines();loadDefects();
 }
 function sanitizeTasks(arr){
   if(!Array.isArray(arr))return [];
@@ -598,7 +625,7 @@ function applyHol(){
 
 /* ================= 업무 모델 ================= */
 function eqStatus(c){if(!c||c==='PM오더')return EQ_ST_PM;if(c==='정산 해당없음')return EQ_ST_NA;return c.includes('미만')?EQ_ST_LO:EQ_ST_HI;}
-function statusOpts(t){switch(t.type){case 'oneoff':return ONEOFF_ST;case 'facility':return FAC_ST;case 'equipment':return eqStatus(t.subcat);default:return null;}}
+function statusOpts(t){switch(t.type){case 'defect':return DEF_ST;case 'oneoff':return ONEOFF_ST;case 'facility':return FAC_ST;case 'equipment':return eqStatus(t.subcat);default:return null;}}
 const isDone=t=>t.status==='완료';
 function newAction(){const T=today();return {id:uid(),name:'',start:T,target:T,end:'',status:'검토중',history:[{s:'검토중',d:T}]};}
 function blankTask(type){
@@ -917,7 +944,7 @@ function renderRows(){
   });
   if(bad)toast(`목록 ${bad}건 표시 중 오류가 있었습니다`);
 }
-function renderAll(){if(view==='routine')renderRoutine();renderDash();if(view==='list')renderList();updateMode();}
+function renderAll(){if(view==='routine')renderRoutine();if(view==='defects')renderDefects();renderDash();if(view==='list')renderList();updateMode();}
 
 /* ================= 입력 컴포넌트 ================= */
 function dateField(val,onChange,{allowEmpty=false}={}){
@@ -1115,7 +1142,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1133,6 +1160,8 @@ function buildField(d,fd){
     case 'skips':c=skipsField(d);break;
     case 'weekdays':c=weekdaysField(d,fd.k,fd.allowEmpty);break;
     case 'mslots':c=mslotsField(d,fd.k);break;
+    case 'causes':c=causesField(d);break;
+    case 'dlog':c=dlogField(d);break;
     case 'sessions':c=sessionsField(d);break;
     case 'prule':c=ruleEditor(d,fd.k);break;
   }
@@ -1157,10 +1186,10 @@ function openTask(id,subId,occ){const t=tasks.find(x=>x.id===id);if(t)openModal(
 function closeModal(){$('#layer').classList.remove('on');mDraft=null;}
 function renderModal(){
   const body=$('#mBody'),st=body.scrollTop;body.innerHTML='';const d=mDraft;
-  $('#mTitle').textContent=d.type==='routine'?(mNew?'새 루틴 만들기':'루틴 수정'):mNew?'새 업무 등록':'업무 상세 / 수정';
+  $('#mTitle').textContent=d.type==='defect'?(mNew?'결함 추가':`결함 상세 / 수정  ${d.no||''}`):d.type==='routine'?(mNew?'새 루틴 만들기':'루틴 수정'):mNew?'새 업무 등록':'업무 상세 / 수정';
   $('#mTag').innerHTML='';$('#mTag').append(el('span',{class:'tb c-'+d.type},TYPES[d.type].label));
   $('#mDel').style.visibility=mNew?'hidden':'visible';
-  if(mNew&&d.type!=='routine')body.append(el('div',{class:'typesel'},...TYPE_LIST.map(k=>el('button',{type:'button',class:`c-${k}${d.type===k?' on':''}`,onclick:()=>{
+  if(mNew&&d.type!=='routine'&&d.type!=='defect')body.append(el('div',{class:'typesel'},...TYPE_LIST.map(k=>el('button',{type:'button',class:`c-${k}${d.type===k?' on':''}`,onclick:()=>{
     if(k===d.type)return;const n=blankTask(k);n.id=d.id;n.title=d.title;
     if(mPreset){n[MAIN_DATE[k]]=mPreset;if(k==='notice')n.endDate=mPreset;}
     mDraft=n;renderModal();}},TYPES[k].label))));
@@ -1173,6 +1202,7 @@ function saveModal(){
   document.querySelectorAll('.fld.err').forEach(x=>x.classList.remove('err'));
   const miss=validate(d);
   if(miss.length){miss.forEach(fd=>{const w=$(`.fld[data-k="${fd.k}"]`);if(w)w.classList.add('err');});toast('필수 항목을 입력하세요: '+miss.map(x=>x.label).join(', '));return;}
+  if(d.type==='defect'){if(saveDefectModal(d)){closeModal();toast(mNew?`결함 ${d.no} 등록했습니다`:'저장했습니다');}return;}
   if(d.type==='routine'){if(saveRoutineModal(d)){closeModal();toast(mNew?'루틴을 만들었습니다':'저장했습니다');}return;}
   if(d.type==='notice'&&d.endDate<d.startDate){toast('종료일자가 시작일자보다 빠릅니다');return;}
   finalize(d);upsert(d);closeModal();toast(mNew?'등록했습니다':'저장했습니다');
@@ -1206,6 +1236,9 @@ function buildSheets(){
         const e=(t.exceptions||{})[k],s=(t.sessions||{})[k]||{};const st=!e?'정상':e.mode==='cancel'?'취소':'일정변경';
         const ad=e&&e.mode==='move'?e.date:k;const tm=e&&e.mode==='cancel'?'':`${(e&&e.startTime)||t.startTime||''}~${(e&&e.endTime)||t.endTime||''}`;
         return [t.title,k,WD[dow(k)],st,e&&e.mode==='cancel'?'':ad,tm,(e&&e.place)||t.place,e?e.reason:'',s.agenda,s.result];}))]],
+    ['결함이력',[['No.','등록일','결함내용','WBS No.','과제명','현황','현황 변경일','현황 이력','경과일','QNC 발행','QNC No.','귀책자','원인','조치현황','조치 건수'],
+      ...[...defects].sort((a,b)=>String(a.no).localeCompare(String(b.no))).map(d=>[d.no,d.created,d.content,d.wbs,d.project,d.status,lastOf(d,d.status),(d.history||[]).map(x=>`${x.s}(${x.d})`).join(' → '),dElapsed(d),d.qnc,d.qncNo,dResp(d),
+        (d.causes||[]).filter(x=>String(x).trim()).map((x,i)=>`${i+1}. ${x}`).join('\n'),(d.dlog||[]).map(a=>`[${a.d}] ${a.text}`).join('\n'),(d.dlog||[]).length])]],
     ['루틴',[['루틴명','등급','가중치','주기','수행 요일','옵션','목표','최소 버전','시작일','상태','현재 연속','최고 연속','이번 달 달성도','메모'],
       ...routines.map(r=>{const s=rStreak(r);const ym=today().slice(0,7);const x=pd(ym+'-01');const last=fmt(new Date(x.getFullYear(),x.getMonth()+1,0));
         return [r.title,r.grade,R_W[r.grade],r.cycle,schedText(r),r.mode,r.mode==='없음'?'':`${r.target}${unit(r)}`,r.minVal?`${r.minVal}${unit(r)}`:'',r.startDate,r.state,s.cur,s.best,pct(rAvg(r,ym+'-01',last)),r.memo];})]],
@@ -1601,7 +1634,7 @@ function isWorkdayBase(s){const w=dow(s);return w!==0&&w!==6;}
 /* ================= 화면 전환 / 설정 ================= */
 function setView(v){view=v;setTimeout(fixWeekbar,0);document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='dash')renderDash();if(v==='list'){try{renderList();}catch(e){console.error(e);toast('업무 목록 표시 오류: '+e.message);}}if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();}
+  if(v==='dash')renderDash();if(v==='list'){try{renderList();}catch(e){console.error(e);toast('업무 목록 표시 오류: '+e.message);}}if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();if(v==='defects')renderDefects();}
 function fillSettings(){$('#sKey').value=settings.apiKey||'';$('#sModel').value=settings.model||'';$('#sUseAI').checked=!!settings.useAI;$('#sLead').value=settings.leadDefault;}
 function setChat(open,noSave){
   $('#app').classList.toggle('chat-off',!open);
@@ -1625,7 +1658,7 @@ function bind(){
   $('#wThis').onclick=()=>{weekRef=today();renderDash();};
   $('#mClose').onclick=$('#mCancel').onclick=closeModal;
   $('#mSave').onclick=saveModal;
-  $('#mDel').onclick=()=>{if(mDraft&&mDraft.type==='routine'){if(!confirm(`'${mDraft.title}' 루틴과 모든 기록을 삭제할까요?`))return;routines=routines.filter(r=>r.id!==mDraft.id);saveRoutines();closeModal();renderRoutine();toast('루틴을 삭제했습니다');return;}if(!mDraft||!confirm(`'${mDraft.title}' 업무를 삭제할까요?`))return;tasks=tasks.filter(t=>t.id!==mDraft.id);save();closeModal();renderAll();toast('삭제했습니다');};
+  $('#mDel').onclick=()=>{if(mDraft&&mDraft.type==='defect'){if(!confirm(`결함 ${mDraft.no||''}을(를) 삭제할까요?`))return;defects=defects.filter(x=>x.id!==mDraft.id);saveDefects();closeModal();renderDefects();toast('결함을 삭제했습니다');return;}if(mDraft&&mDraft.type==='routine'){if(!confirm(`'${mDraft.title}' 루틴과 모든 기록을 삭제할까요?`))return;routines=routines.filter(r=>r.id!==mDraft.id);saveRoutines();closeModal();renderRoutine();toast('루틴을 삭제했습니다');return;}if(!mDraft||!confirm(`'${mDraft.title}' 업무를 삭제할까요?`))return;tasks=tasks.filter(t=>t.id!==mDraft.id);save();closeModal();renderAll();toast('삭제했습니다');};
   document.addEventListener('keydown',e=>{if(e.key==='Escape'&&$('#layer').classList.contains('on'))closeModal();});
   const ci=$('#cInput');
   ci.addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.isComposing){e.preventDefault();const v=ci.value;ci.value='';userSend(v);}});
@@ -1635,9 +1668,9 @@ function bind(){
   $('#sTest').onclick=async()=>{const msg=$('#sTestMsg');const keep={...settings};settings.apiKey=$('#sKey').value.trim();settings.model=$('#sModel').value.trim()||settings.model;msg.textContent='확인 중…';
     try{const r=await callAI([{role:'user',content:'연결 테스트입니다. "OK"라고만 답하세요.'}],'짧게 답한다.');msg.textContent='✅ 연결 성공: '+r.slice(0,40);}catch(e){msg.textContent='❌ 실패: '+e.message;}finally{settings.apiKey=keep.apiKey;settings.model=keep.model;}};
   $('#sSaveLead').onclick=()=>{const n=parseInt($('#sLead').value,10);if(isNaN(n)||n<0){toast('0 이상의 숫자를 입력하세요');return;}settings.leadDefault=n;saveSettings();toast('저장했습니다');};
-  $('#sBackup').onclick=()=>download(`업무현황_백업_${today().replace(/-/g,'')}.json`,new Blob([JSON.stringify({tasks,routines,settings:{...settings,apiKey:''}},null,1)],{type:'application/json'}));
+  $('#sBackup').onclick=()=>download(`업무현황_백업_${today().replace(/-/g,'')}.json`,new Blob([JSON.stringify({tasks,routines,defects,settings:{...settings,apiKey:''}},null,1)],{type:'application/json'}));
   $('#sRestore').onchange=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);const arr=Array.isArray(j)?j:j.tasks;if(!Array.isArray(arr))throw 0;
-    if(!confirm(`백업의 업무 ${arr.length}건으로 현재 데이터를 교체할까요?`))return;tasks=arr;if(j.settings){const k=settings.apiKey;Object.assign(settings,j.settings);settings.apiKey=k;if(!Array.isArray(j.settings.holidayList))settings.holidayList=null;saveSettings();}if(Array.isArray(j.routines)){routines=j.routines;saveRoutines();}save();renderAll();fillSettings();toast('불러왔습니다');}catch(err){toast('올바른 백업 파일이 아닙니다');}};r.readAsText(file);e.target.value='';};
+    if(!confirm(`백업의 업무 ${arr.length}건으로 현재 데이터를 교체할까요?`))return;tasks=arr;if(j.settings){const k=settings.apiKey;Object.assign(settings,j.settings);settings.apiKey=k;if(!Array.isArray(j.settings.holidayList))settings.holidayList=null;saveSettings();}if(Array.isArray(j.routines)){routines=j.routines;saveRoutines();}if(Array.isArray(j.defects)){defects=j.defects;saveDefects();}save();renderAll();fillSettings();toast('불러왔습니다');}catch(err){toast('올바른 백업 파일이 아닙니다');}};r.readAsText(file);e.target.value='';};
   $('#sClear').onclick=()=>{if(confirm('모든 업무 데이터를 삭제할까요? (되돌릴 수 없음)'+(cloud.user?'\n※ 로그인 상태이므로 클라우드 데이터도 삭제됩니다.':''))&&confirm('정말 삭제할까요? 백업을 먼저 받아두는 것을 권장합니다.')){tasks=[];save();renderAll();toast('전체 삭제했습니다');}};
 }
 function welcome(){
@@ -1891,6 +1924,105 @@ function saveRoutineModal(d){
 }
 setInterval(()=>{if(view!=='routine')return;document.querySelectorAll('[data-run]').forEach(sp=>{const r=routines.find(x=>x.id===sp.dataset.run);if(!r||!r.run)return;const k=r.run.key;sp.textContent=`${fmtV(rVal(r,k))}/${r.target}${unit(r)} ⏱`;const b=sp.parentNode.querySelector('.rbar i');if(b)b.style.width=Math.min(100,rVal(r,k)/(Number(r.target)||1)*100)+'%';});},1000);
 
+
+/* ================= 결함 이력 ================= */
+const DKEY='wm_defects_v1';
+let defects=[];
+const DEF_ST=['접수','임시조치','원인분석중','대책수립','조치중','효과확인','완료','보류'];
+const DEF_RESP=['설계','기술','생산','협력업체','기타'];
+function loadDefects(){try{defects=JSON.parse(localStorage.getItem(DKEY)||'[]')||[];}catch(e){defects=[];}if(!Array.isArray(defects))defects=[];defects=defects.filter(x=>x&&x.id);}
+function saveDefects(){try{localStorage.setItem(DKEY,JSON.stringify(defects));}catch(e){}if(typeof cloudPushDefects==='function')cloudPushDefects();}
+function nextDefectNo(){const y=today().slice(0,4);const n=defects.filter(x=>String(x.no||'').startsWith(`D-${y}-`)).map(x=>parseInt(String(x.no).split('-')[2],10)||0);return `D-${y}-${String((n.length?Math.max(...n):0)+1).padStart(3,'0')}`;}
+function blankDefect(){return {id:uid(),type:'defect',no:'',content:'',wbs:'',project:'',status:'접수',history:[{s:'접수',d:today()}],qnc:'NO',qncNo:'',resp:'',respEtc:'',causes:[''],dlog:[],created:today()};}
+const dTitle=d=>String(d.content||'').split('\n')[0].slice(0,60)||'(내용 없음)';
+const dResp=d=>d.resp==='기타'?(d.respEtc?`기타(${d.respEtc})`:'기타'):(d.resp||'');
+const dOpen=d=>d.status!=='완료';
+function dElapsed(d){const s=(d.history&&d.history[0]&&d.history[0].d)||d.created;if(!isValidDate(s))return '';return diffDays(s,d.status==='완료'?(lastOf(d,'완료')||today()):today());}
+/* 입력 필드 */
+function causesField(d){
+  d.causes=Array.isArray(d.causes)&&d.causes.length?d.causes:[''];
+  const box=el('div',{class:'dlist'});
+  d.causes.forEach((c,i)=>{
+    const ta=el('textarea',{placeholder:`원인 ${i+1} (예: 가공 치수 관리 누락, 협력사 검사 미흡)`,style:'min-height:44px',oninput:e=>{d.causes[i]=e.target.value;}});ta.value=c||'';
+    box.append(el('div',{class:'drow'},el('span',{class:'dnum'},`원인 ${i+1}`),ta,
+      d.causes.length>1?el('button',{type:'button',class:'xbtn',title:'이 원인 삭제',onclick:()=>{d.causes.splice(i,1);renderModal();}},'✕'):el('span',{style:'width:22px'})));
+  });
+  box.append(el('button',{type:'button',class:'btn sm',onclick:()=>{d.causes.push('');renderModal();setTimeout(()=>{const t=document.querySelectorAll('.fld[data-k="causes"] textarea');if(t.length)t[t.length-1].focus();},30);}},'＋ 원인 추가'));
+  return box;
+}
+function dlogField(d){
+  d.dlog=Array.isArray(d.dlog)?d.dlog:[];
+  const box=el('div',{class:'dlist'});
+  if(!d.dlog.length)box.append(el('div',{class:'hint',style:'margin-bottom:6px'},'아직 조치 기록이 없습니다. [＋ 조치 추가]를 누르면 오늘 날짜로 입력칸이 생깁니다.'));
+  d.dlog.forEach((a,i)=>{
+    const ta=el('textarea',{placeholder:'조치 내용 (예: 해당 LOT 전수 선별, 가공 프로그램 수정, 작업표준 개정)',style:'min-height:44px',oninput:e=>{a.text=e.target.value;}});ta.value=a.text||'';
+    box.append(el('div',{class:'drow'},
+      el('div',{class:'ddate'},el('input',{type:'date',value:a.d||'',title:'조치 날짜 (자동 입력 · 수정 가능)',onchange:e=>{if(isValidDate(e.target.value))a.d=e.target.value;}}),el('span',{class:'hint'},isValidDate(a.d)?`(${WD[dow(a.d)]})`:'')),
+      ta,el('button',{type:'button',class:'xbtn',title:'이 조치 삭제',onclick:()=>{if(!a.text||confirm('이 조치 기록을 삭제할까요?')){d.dlog.splice(i,1);renderModal();}}},'✕')));
+  });
+  box.append(el('button',{type:'button',class:'btn sm',onclick:()=>{d.dlog.push({d:today(),text:''});renderModal();setTimeout(()=>{const t=document.querySelectorAll('.fld[data-k="dlog"] textarea');if(t.length)t[t.length-1].focus();},30);}},'＋ 조치 추가'));
+  return box;
+}
+function saveDefectModal(d){
+  if(!String(d.content||'').trim()){const w=$('.fld[data-k="content"]');if(w)w.classList.add('err');toast('결함내용을 입력하세요');return false;}
+  if(d.qnc==='YES'&&!String(d.qncNo||'').trim()){const w=$('.fld[data-k="qncNo"]');if(w)w.classList.add('err');toast('QNC No.를 입력하세요');return false;}
+  if(d.resp==='기타'&&!String(d.respEtc||'').trim()){const w=$('.fld[data-k="respEtc"]');if(w)w.classList.add('err');toast('귀책자(기타) 내용을 입력하세요');return false;}
+  if(!d.status){d.status='접수';d.history=[{s:'접수',d:d.created||today()}];}
+  if(d.qnc!=='YES')d.qncNo='';
+  if(d.resp!=='기타')d.respEtc='';
+  d.causes=(d.causes||[]).map(x=>String(x||''));if(d.causes.length>1)d.causes=d.causes.filter((x,i)=>x.trim()||i===0);
+  d.dlog=(d.dlog||[]).filter(a=>a&&(String(a.text||'').trim()));
+  if(!d.no)d.no=nextDefectNo();
+  d.updated=today();
+  const i=defects.findIndex(x=>x.id===d.id);if(i>=0)defects[i]=d;else defects.push(d);
+  saveDefects();renderDefects();return true;
+}
+function openDefect(id){const d=defects.find(x=>x.id===id);if(d)openModal(d);}
+/* 화면 */
+let dFilter='open',dQ='';
+function renderDefects(){
+  const root=$('#dfRoot');if(!root||view!=='defects')return;
+  root.innerHTML='';const T=today();
+  const cnt=f=>defects.filter(f).length;
+  const filters=[['open','진행중',d=>dOpen(d)&&d.status!=='보류'],['all','전체',()=>true],...DEF_ST.map(s=>[s,s,d=>d.status===s])];
+  const q=el('input',{type:'text',placeholder:'결함내용·WBS·과제명·QNC·원인 검색',value:dQ,oninput:e=>{dQ=e.target.value;fillDefectTable();}});
+  root.append(el('div',{class:'rtbar'},el('h2',{style:'margin:0;font-size:16px'},'결함 이력'),el('div',{class:'spacer'}),
+    el('button',{class:'btn primary',onclick:()=>openModal(blankDefect(),{isNew:true})},'＋ 결함 추가')));
+  // 요약
+  const byResp=DEF_RESP.map(r=>[r,cnt(d=>d.resp===r)]);
+  root.append(el('div',{class:'stat',style:'margin:0 0 12px'},
+    el('div',{},el('b',{},String(cnt(d=>dOpen(d)&&d.status!=='보류'))),el('span',{},'진행중')),
+    el('div',{},el('b',{},String(cnt(d=>d.status==='완료'))),el('span',{},'완료')),
+    el('div',{},el('b',{},String(cnt(d=>d.qnc==='YES'))),el('span',{},'QNC 발행')),
+    el('div',{},el('b',{style:'font-size:13px;line-height:1.9'},byResp.filter(x=>x[1]).map(x=>`${x[0]} ${x[1]}`).join(' · ')||'—'),el('span',{},'귀책별 건수'))));
+  root.append(el('div',{class:'tabs'},...filters.map(([k,l,f])=>el('button',{class:dFilter===k?'on':'',onclick:()=>{dFilter=k;renderDefects();}},`${l} ${cnt(f)}`)),q));
+  root.append(el('div',{class:'panel',style:'margin-top:0'},el('div',{style:'overflow:auto',id:'dfTbl'})));
+  fillDefectTable();
+}
+function fillDefectTable(){
+  const box=$('#dfTbl');if(!box)return;box.innerHTML='';
+  const filters=[['open',d=>dOpen(d)&&d.status!=='보류'],['all',()=>true],...DEF_ST.map(s=>[s,d=>d.status===s])];
+  const fn=(filters.find(f=>f[0]===dFilter)||filters[0])[1];const ql=dQ.trim().toLowerCase();
+  const rows=defects.filter(fn).filter(d=>!ql||JSON.stringify(d).toLowerCase().includes(ql)).sort((a,b)=>String(b.no||'').localeCompare(String(a.no||'')));
+  const tbl=el('table',{class:'list dft'},el('tr',{},...['No.','등록일','결함내용','WBS No.','과제명','귀책','QNC','원인','현황','최근 조치','경과일'].map(h=>el('th',{},h))));
+  if(!rows.length)tbl.append(el('tr',{},el('td',{colspan:11,class:'hint',style:'text-align:center;padding:24px'},defects.length?'조건에 맞는 결함이 없습니다.':'등록된 결함이 없습니다. [＋ 결함 추가]로 등록하세요.')));
+  rows.forEach(d=>{
+    const last=(d.dlog||[]).slice().sort((a,b)=>String(b.d).localeCompare(String(a.d)))[0];
+    const cs=(d.causes||[]).filter(x=>String(x).trim());
+    tbl.append(el('tr',{class:'row'+(d.status==='완료'?' done':''),onclick:()=>openDefect(d.id)},
+      el('td',{style:'white-space:nowrap;font-variant-numeric:tabular-nums'},d.no||''),
+      el('td',{style:'white-space:nowrap'},d.created||''),
+      el('td',{style:'font-weight:600;max-width:320px'},dTitle(d)),
+      el('td',{},d.wbs||''),el('td',{},d.project||''),el('td',{},dResp(d)),
+      el('td',{},d.qnc==='YES'?el('span',{class:'qnc'},d.qncNo||'YES'):'—'),
+      el('td',{class:'hint',style:'max-width:220px'},cs.length?cs[0].slice(0,40)+(cs.length>1?` 외 ${cs.length-1}`:''):'—'),
+      el('td',{style:'white-space:nowrap'},el('span',{class:'dst ds-'+DEF_ST.indexOf(d.status)},d.status||''),el('span',{class:'hint'},' '+mmdd(lastOf(d,d.status)))),
+      el('td',{class:'hint',style:'max-width:220px'},last?`${mmdd(last.d)} ${String(last.text).split('\n')[0].slice(0,36)}`:'—'),
+      el('td',{},String(dElapsed(d)))));
+  });
+  box.append(tbl);
+}
+
 /* ================= Firebase 클라우드 동기화 ================= */
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyAZjFBOY5IFkSA6tivSusCB8xEIX_Q_4IE",
@@ -1900,7 +2032,7 @@ const FIREBASE_CONFIG={
   messagingSenderId:"1019655919073",
   appId:"1:1019655919073:web:9732a1fc0aa8ce7072eea0"
 };
-const cloud={rSynced:new Map(),rReady:false,unsubR:null,ok:false,auth:null,db:null,user:null,ready:false,unsubT:null,unsubS:null,synced:new Map(),setSynced:'',pending:0,offline:false,err:''};
+const cloud={dSynced:new Map(),dReady:false,unsubD:null,rSynced:new Map(),rReady:false,unsubR:null,ok:false,auth:null,db:null,user:null,ready:false,unsubT:null,unsubS:null,synced:new Map(),setSynced:'',pending:0,offline:false,err:''};
 function stableStr(v){if(Array.isArray(v))return '['+v.map(stableStr).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableStr(v[k])).join(',')+'}';return JSON.stringify(v===undefined?null:v);}
 const cleanObj=o=>JSON.parse(JSON.stringify(o));
 const userRef=()=>cloud.db.collection('users').doc(cloud.user.uid);
@@ -1937,7 +2069,7 @@ async function cloudLogout(){
   if(!cloud.user)return;
   const wipe=confirm('로그아웃합니다.\n\n이 PC 브라우저에 남아 있는 업무 데이터도 지울까요?\n(공용 PC라면 [확인] 권장 · 클라우드 데이터는 그대로 유지됩니다)');
   await cloud.auth.signOut();
-  if(wipe){tasks=[];routines=[];try{localStorage.removeItem(KEY);localStorage.removeItem(RKEY);localStorage.removeItem('wm_cloud_uid');}catch(e){}renderAll();toast('로그아웃 · 이 PC 데이터 삭제');}
+  if(wipe){tasks=[];routines=[];defects=[];try{localStorage.removeItem(KEY);localStorage.removeItem(RKEY);localStorage.removeItem(DKEY);localStorage.removeItem('wm_cloud_uid');}catch(e){}renderAll();toast('로그아웃 · 이 PC 데이터 삭제');}
   else toast('로그아웃했습니다');
 }
 async function cloudStart(u){
@@ -1967,6 +2099,18 @@ async function cloudStart(u){
         cloud.rReady=true;if(view==='routine')renderRoutine();
       }
     },cloudError);
+    const dsnap=await ur.collection('defects').get();
+    const ddIds=new Set(dsnap.docs.map(x=>x.id));
+    const dLocal=lastUid===u.uid?[]:defects.filter(x=>x&&x.id&&!ddIds.has(x.id));
+    if(dLocal.length&&confirm(`이 PC에만 있는 결함 ${dLocal.length}건을 클라우드에 올릴까요?`))await batchWrite(dLocal.map(x=>({op:'set',id:x.id,data:x})),'defects');
+    cloud.unsubD=ur.collection('defects').onSnapshot({includeMetadataChanges:true},qs=>{
+      if(!qs.metadata.hasPendingWrites||!cloud.dReady){
+        const arr=qs.docs.map(x=>x.data()).filter(x=>x&&x.id);
+        cloud.dSynced=new Map(arr.map(x=>[x.id,stableStr(x)]));
+        defects=arr;try{localStorage.setItem(DKEY,JSON.stringify(defects));}catch(e){}
+        cloud.dReady=true;if(view==='defects')renderDefects();
+      }
+    },cloudError);
     const sdoc=await ur.collection('meta').doc('settings').get();
     if(!sdoc.exists)await ur.collection('meta').doc('settings').set(cloudSettings());
     try{localStorage.setItem('wm_cloud_uid',u.uid);}catch(e){}
@@ -1992,7 +2136,7 @@ async function cloudStart(u){
   }catch(e){cloudError(e);}
 }
 function cloudStop(){
-  if(cloud.unsubT)cloud.unsubT();if(cloud.unsubS)cloud.unsubS();if(cloud.unsubR)cloud.unsubR();cloud.unsubR=null;cloud.rReady=false;cloud.rSynced=new Map();
+  if(cloud.unsubT)cloud.unsubT();if(cloud.unsubS)cloud.unsubS();if(cloud.unsubR)cloud.unsubR();cloud.unsubR=null;if(cloud.unsubD)cloud.unsubD();cloud.unsubD=null;cloud.dReady=false;cloud.dSynced=new Map();cloud.rReady=false;cloud.rSynced=new Map();
   cloud.unsubT=cloud.unsubS=null;cloud.user=null;cloud.ready=false;cloud.synced=new Map();renderSync();
 }
 async function batchWrite(ops,colName){
@@ -2011,6 +2155,15 @@ function cloudPushTasks(){
   if(!ops.length)return;
   cloud.pending++;renderSync();
   batchWrite(ops).then(()=>{cloud.pending--;renderSync();}).catch(e=>{cloud.pending--;cloudError(e);});
+}
+function cloudPushDefects(){
+  if(!cloud.user||!cloud.dReady)return;
+  const ops=[],ids=new Set();
+  for(const x of defects){if(!x||!x.id)continue;ids.add(x.id);const st=stableStr(cleanObj(x));if(cloud.dSynced.get(x.id)!==st){ops.push({op:'set',id:x.id,data:x});cloud.dSynced.set(x.id,st);}}
+  for(const id of [...cloud.dSynced.keys()])if(!ids.has(id)){ops.push({op:'del',id});cloud.dSynced.delete(id);}
+  if(!ops.length)return;
+  cloud.pending++;renderSync();
+  batchWrite(ops,'defects').then(()=>{cloud.pending--;renderSync();}).catch(e=>{cloud.pending--;cloudError(e);});
 }
 function cloudPushRoutines(){
   if(!cloud.user||!cloud.rReady)return;
