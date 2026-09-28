@@ -230,6 +230,8 @@ table.list tr.cur td{background:var(--accent2)}
 .btn.sync-login{border-color:var(--accent-l);color:var(--accent-t)}
 .skipbtn{margin-left:auto;border:1px solid var(--line);background:rgba(0,0,0,.3);color:var(--sub);border-radius:4px;font-size:10.5px;padding:0 5px;line-height:16px}
 .skipbtn:hover{color:var(--danger);border-color:#6a2a30}
+.skipbtn.mv{color:var(--warn);border-color:#6a5020}
+.skipbtn.mv+.skipbtn{margin-left:3px}
 .skipbtn.rs{color:var(--accent-t);border-color:var(--accent-l)}
 .dd+.skipbtn{margin-left:4px}
 .skiprow{border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-bottom:8px;background:var(--input)}
@@ -537,7 +539,7 @@ const FORMS={
     f('target','목표 (타이머=분 / 횟수=회)','number',0,null,{showIf:d=>d.mode!=='없음'}),
     f('minVal','최소 버전 기준 (A등급 · 선택)','number',0,null,{showIf:d=>d.grade==='A'&&d.mode!=='없음',hint:'바쁜 날 이만큼만 해도 연속기록이 유지됩니다 (예: 목표 30분 / 최소 10분). 체크형 A등급은 체크 버튼을 한 번 더 누르면 "최소"로 기록 (달성도 50%)'}),
     f('startDate','시작일','date',1),f('state','상태','seg',0,['진행','중지'],{hint:'중지하면 이후 기간은 집계에서 빠지고 기존 기록은 유지됩니다'}),f('memo','메모','textarea')],
-  periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea'),f('skip','미수행 기록','skips',0,null,{showIf:d=>d.skip&&Object.keys(d.skip).length>0})],
+  periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea'),f('moves','회차 일정 변경','moves',0,null,{showIf:d=>d.moves&&Object.keys(d.moves).length>0}),f('skip','미수행 기록','skips',0,null,{showIf:d=>d.skip&&Object.keys(d.skip).length>0})],
   oneoff:[f('title','업무명','text',1),f('subcat','구분','select',1,ONEOFF_CATS),f('importance','중요도','seg',1,GRADES,{desc:IMP_DESC,long:IMP_LONG,hint:GRADES.map(g=>`${g}: ${IMP_LONG[g]}`).join('\n')}),f('urgency','긴급도','seg',1,GRADES,{desc:URG_DESC,long:URG_LONG,hint:GRADES.map(g=>`${g}: ${URG_LONG[g]}`).join('\n')}),
     f('receivedDate','접수일','date',1),f('requestDate','완료요청일','date',1),f('dueDate','완료예정일','date',1,null,{hint:'대시보드 표시: 완료예정일 −5 Workday와 접수일 중 늦은 날부터 · 미완료 시 예정일이 지나도 "지연"으로 계속 표시'}),
     f('status','현황','status'),f('requester','요청의뢰자','text'),f('collaborator','협조자','text'),f('memo','메모','textarea'),f('actions','세부 Action Item','actions')],
@@ -652,6 +654,7 @@ function validate(d){
   return miss;
 }
 function finalize(d){
+  if(d.type==='periodic'&&d.moves){for(const [k,m] of Object.entries(d.moves))if(!m||!isValidDate(m.date)||m.date===k)delete d.moves[k];}
   const so=statusOpts(d);
   if(so&&!d.status){d.status=so[0];d.history=[{s:so[0],d:d.receivedDate||today()}];}
   if(d.type==='periodic'&&['월간','분기','연간','주간'].includes(d.cycle))d.rule=ruleOf(d);
@@ -803,14 +806,15 @@ function itemsOn(d){
       case 'appointment':
         if(t.date===d)out.push({t,ord:3,time:t.time||'',title:t.title,meta:[t.time,t.place,t.partner].filter(Boolean).join(' · ')});
         break;
-      case 'periodic':
-        {const k=periodicKey(t,d);if(k){const dv=t.done&&t.done[k];const sk=t.skip&&t.skip[k];
-          if(dv&&isValidDate(String(dv))&&isWindowRule(ruleOf(t))&&d>dv)break;
-          if(sk&&isValidDate(sk.d)&&isWindowRule(ruleOf(t))&&d>sk.d)break;
-          if(sk&&!dv){out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win:k!==d,skipped:true,done:true,flag:'미수행',meta:sk.reason?'사유: '+sk.reason:'사유 미입력 (클릭해서 입력)'});break;}
-          const rt=['일일','주간'].includes(t.cycle)?'':periodicRuleText(t);
-          out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win:k!==d,meta:[rt+(k!==d&&!dv?' · 완료 체크 전까지 표시':''),t.memo?String(t.memo).split('\n')[0].slice(0,40):''].filter(Boolean).join(' · '),chk:true,done:!!dv});}}
-        break;
+      case 'periodic':{
+        const mv=t.moves||{};
+        for(const [ok,m] of Object.entries(mv))if(m&&m.date===d&&ok!==d)pushPeriodic(out,t,d,ok,m);
+        const k=periodicKey(t,d);
+        if(k){
+          if(k===d&&mv[k]&&isValidDate(mv[k].date)&&mv[k].date!==d)out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,done:true,flag:'변경',meta:`→ ${mmdd(mv[k].date)}(${WD[dow(mv[k].date)]}) 로 일정 변경`+(mv[k].reason?' · '+mv[k].reason:'')});
+          else pushPeriodic(out,t,d,k,null);
+        }
+        break;}
       case 'oneoff':{
         const r=range(t.dueDate,t.status,lastOf(t,'완료'),t.receivedDate);
         if(inR(d,r))out.push({t,ord:5,time:'',title:t.title,pri:gr(t),meta:[t.subcat,t.status,`예정 ${mmdd(t.dueDate)}`].filter(Boolean).join(' · '),badge:dBadge(t.dueDate,isDone(t)),late:d>t.dueDate&&!isDone(t)&&t.status!=='보류',done:isDone(t),hold:t.status==='보류'});
@@ -838,6 +842,16 @@ function pushActions(out,t,d,ord){
   });
 }
 const subLabel=t=>(t.type==='oneoff'?'일회성':'설비')+' Action';
+function pushPeriodic(out,t,d,k,moved){
+  const win=!moved&&k!==d;const dv=t.done&&t.done[k];const sk=t.skip&&t.skip[k];
+  if(dv&&isValidDate(String(dv))&&win&&isWindowRule(ruleOf(t))&&d>dv)return;
+  if(sk&&isValidDate(sk.d)&&win&&isWindowRule(ruleOf(t))&&d>sk.d)return;
+  const mvTxt=moved?[`원래 ${mmdd(k)}(${WD[dow(k)]})`,moved.reason||''].filter(Boolean).join(' · '):'';
+  if(sk&&!dv){out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win,skipped:true,done:true,flag:'미수행',meta:[sk.reason?'사유: '+sk.reason:'사유 미입력 (클릭해서 입력)',mvTxt].filter(Boolean).join(' · ')});return;}
+  const rt=['일일','주간'].includes(t.cycle)?'':periodicRuleText(t);
+  out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win,flag:moved?'변경':'',movable:!win,
+    meta:[moved?mvTxt:rt+(win&&!dv?' · 완료 체크 전까지 표시':''),t.memo?String(t.memo).split('\n')[0].slice(0,40):''].filter(Boolean).join(' · '),chk:true,done:!!dv});
+}
 function stalledRows(){
   const T=today(),rows=[];
   for(const t of tasks){
@@ -871,6 +885,7 @@ function chipEl(it,d){
   if(fl)top.append(el('span',{class:'flag'+(fl==='취소'||fl==='지연'||fl==='미수행'?' x':''),title:fl==='지연'?`예정일 ${it.badge.text.replace('D+','')}일 경과 · 완료 처리 전까지 매일 표시`:null},fl==='변경'?'일정변경':fl));
   if(it.pri)top.append(el('span',{class:'gr g-'+(it.t.importance==='A'||it.t.urgency==='A'?'a':'n'),title:`중요도 ${it.t.importance||'-'}(${IMP_DESC[it.t.importance]||'-'}) / 긴급도 ${it.t.urgency||'-'}(${URG_DESC[it.t.urgency]||'-'})`},it.pri));
   if(it.badge)top.append(el('span',{class:'dd'+(it.badge.over?' over':'')},it.badge.text));
+  if(it.chk&&it.movable&&!it.done&&!it.skipped)top.append(el('button',{class:'skipbtn mv',title:'이 회차만 일정 변경',onclick:e=>{e.stopPropagation();const k=it.okey||d;openModal(it.t,{focusMove:k});}},'일정변경'));
   if(it.chk&&!it.done&&!it.skipped)top.append(el('button',{class:'skipbtn',title:'이 회차 미수행 처리 (사유 입력)',onclick:e=>{e.stopPropagation();const k=it.okey||d;it.t.skip=it.t.skip||{};it.t.skip[k]={d,reason:''};save();renderDash();openModal(it.t,{focusSkip:k});}},'미수행'));
   if(it.skipped)top.append(el('button',{class:'skipbtn rs',title:'미수행 취소 (원복)',onclick:e=>{e.stopPropagation();const k=it.okey||d;if(it.t.skip)delete it.t.skip[k];save();renderDash();toast('미수행을 취소했습니다');}},'↺ 원복'));
   c.append(top,el('div',{class:'ct'},it.title||'(제목 없음)'));
@@ -1132,6 +1147,17 @@ function ruleEditor(d,key){
   box.append(el('div',{class:'rprev'},el('b',{},(isM?ruleText('월간',r):(cyc==='주간'?`매주 ${WD[r.wd]}요일`:ruleText(cyc,r)))+' → 다음 일정: '),nx.length?nx.map(fmtK).join(', '):'없음'));
   return box;
 }
+function movesField(d){
+  const box=el('div',{class:'skips'});
+  Object.keys(d.moves||{}).sort().reverse().forEach(k=>{const m=d.moves[k];
+    box.append(el('div',{class:'skiprow','data-move':k},
+      el('div',{class:'row-inline',style:'margin:0 0 6px'},el('span',{class:'flag'},'일정변경'),el('b',{},`원래 ${k} (${WD[dow(k)]})`),el('span',{},'→'),
+        dateField(m.date,v=>{m.date=v;}),el('div',{class:'spacer'}),
+        el('button',{type:'button',class:'btn sm',title:'원래 일정으로 되돌리기',onclick:()=>{delete d.moves[k];renderModal();}},'↺ 원복')),
+      el('input',{type:'text',placeholder:'변경 사유 (예: 설비 가동 일정, 출장, 고객 방문)',value:m.reason||'',oninput:e=>{m.reason=e.target.value;}})));});
+  box.append(el('div',{class:'hint'},'이 회차만 바뀌고 반복 일정은 그대로 유지됩니다. 수행 체크·미수행 기록은 원래 회차 기준으로 따라갑니다.'));
+  return box;
+}
 function skipsField(d){
   const box=el('div',{class:'skips'});
   Object.keys(d.skip||{}).sort().reverse().forEach(k=>{const s=d.skip[k];
@@ -1142,7 +1168,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1158,6 +1184,7 @@ function buildField(d,fd){
       if(d.type==='equipment'&&d.status&&so&&!so.includes(d.status))w.append(el('div',{class:'hint'},`현재 현황 '${d.status}'은(는) 이 구분의 단계에 없습니다.`));break;}
     case 'actions':c=actionsField(d);break;
     case 'skips':c=skipsField(d);break;
+    case 'moves':c=movesField(d);break;
     case 'weekdays':c=weekdaysField(d,fd.k,fd.allowEmpty);break;
     case 'mslots':c=mslotsField(d,fd.k);break;
     case 'causes':c=causesField(d);break;
@@ -1171,10 +1198,12 @@ function buildField(d,fd){
 
 /* ================= 모달 ================= */
 let mDraft=null,mNew=false,mPreset=null,mSess=null;
-function openModal(task,{isNew=false,focusAction=null,preset=null,sessDate=null,focusSkip=null}={}){
+function openModal(task,{isNew=false,focusAction=null,preset=null,sessDate=null,focusSkip=null,focusMove=null}={}){
   mDraft=clone(task);mNew=isNew;mPreset=preset;mSess=sessDate;if(mDraft.type==='meeting')migrateMeeting(mDraft);
   $('#layer').classList.add('on');renderModal();$('#mBody').scrollTop=0;
   if(focusAction)setTimeout(()=>{const c=$(`[data-aid="${focusAction}"]`);if(c){c.scrollIntoView({block:'center'});c.classList.add('flash');}},50);
+  if(focusMove){mDraft.moves=mDraft.moves||{};if(!mDraft.moves[focusMove])mDraft.moves[focusMove]={date:focusMove,reason:''};renderModal();
+    setTimeout(()=>{const c=$(`[data-move="${focusMove}"]`);if(c){c.scrollIntoView({block:'center'});c.classList.add('flash');const i=c.querySelector('input[type=date]');if(i)i.focus();}},60);}
   if(focusSkip)setTimeout(()=>{const c=$(`[data-skip="${focusSkip}"]`);if(c){c.scrollIntoView({block:'center'});c.focus();c.closest('.skiprow').classList.add('flash');}},60);
 }
 function openNew(type,date){
@@ -1215,9 +1244,9 @@ function buildSheets(){
   const cd=o=>o.status?lastOf(o,o.status):'';
   const eqs=by('equipment');
   return [
-    ['주기업무',[['업무명','주기','반복 규칙','적용 시작일','수행체크 횟수','최근 수행체크일','미수행 횟수','미수행 내역','메모','등록일'],
+    ['주기업무',[['업무명','주기','반복 규칙','적용 시작일','수행체크 횟수','최근 수행체크일','미수행 횟수','미수행 내역','일정변경 내역','메모','등록일'],
       ...by('periodic').map(t=>{const ds=Object.entries(t.done||{}).map(([k,v])=>isValidDate(String(v))?v:k).sort();const sk=Object.entries(t.skip||{}).sort();
-        return [t.title,t.cycle,periodicRuleText(t),t.baseDate,ds.length,ds[ds.length-1]||'',sk.length,sk.map(([k,v])=>`${k}: ${v.reason||'(사유 없음)'}`).join('\n'),t.memo,t.created];})]],
+        return [t.title,t.cycle,periodicRuleText(t),t.baseDate,ds.length,ds[ds.length-1]||'',sk.length,sk.map(([k,v])=>`${k}: ${v.reason||'(사유 없음)'}`).join('\n'),Object.entries(t.moves||{}).sort().map(([k,v])=>`${k} → ${v.date}${v.reason?' ('+v.reason+')':''}`).join('\n'),t.memo,t.created];})]],
     ['일회성업무',[['업무명','구분','중요도','긴급도','접수일','완료요청일','완료예정일','현황','현황 변경일','진행이력','경과일','요청의뢰자','협조자','Action Item(완료/전체)','메모'],
       ...by('oneoff').map(t=>{const a=t.actions||[];return [t.title,t.subcat,t.importance,t.urgency,t.receivedDate,t.requestDate,t.dueDate,t.status,cd(t),hs(t),elapsed(t),t.requester,t.collaborator,`${a.filter(x=>x.status==='완료').length}/${a.length}`,t.memo];})]],
     ['일회성_ActionItem',[['일회성 업무명','구분','Item명','시작일','완료목표일','종료일','현황','현황 변경일','진행이력'],
