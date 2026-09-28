@@ -354,6 +354,58 @@ table.dft th{white-space:nowrap}
 .icsbox .hint{white-space:pre-line}
 .icsrow{width:100%;border:1px solid var(--accent-l);background:var(--accent2);border-radius:8px;padding:9px 12px;margin-top:4px}
 .icsrow .hint{white-space:pre-line}
+.pinwrap{display:flex;justify-content:center;padding:40px 0}
+.pinbox{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:26px 30px;text-align:center;width:320px;position:relative}
+.pinbox h2{margin:6px 0 14px;font-size:17px}
+.pinlock{font-size:30px}
+.pindots{display:flex;gap:12px;justify-content:center;margin-bottom:10px}
+.pindots span{width:14px;height:14px;border-radius:50%;border:2px solid var(--sub)}
+.pindots span.on{background:var(--accent);border-color:var(--accent)}
+.pinmsg{min-height:18px;font-size:12.5px;color:var(--warn);margin-bottom:12px}
+.pinkeys{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.pk{height:52px;border-radius:12px;border:1px solid var(--line);background:var(--panel2);font-size:20px;font-weight:700}
+.pk:hover{background:var(--hover)}
+.pk.fn{font-size:14px;color:var(--sub)}
+.pinhidden{position:absolute;opacity:0;width:1px;height:1px;left:0;top:0}
+.pinbox.shake{animation:shk .35s}
+@keyframes shk{20%,60%{transform:translateX(-6px)}40%,80%{transform:translateX(6px)}}
+.dwrap{display:grid;grid-template-columns:320px 1fr;gap:14px;align-items:start}
+.dwrap .card{max-width:none;margin:0}
+.dcal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.dcw{text-align:center;font-size:11.5px;color:var(--sub);font-weight:700}
+.dcw.sun{color:var(--sun)}.dcw.sat{color:var(--sat)}
+.dcd{height:42px;border:1px solid var(--line2);border-radius:8px;background:var(--panel2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.dcd:hover:not(:disabled){border-color:var(--accent)}
+.dcd:disabled{opacity:.35;cursor:default}
+.dcd .dn{font-size:12px;font-weight:600}
+.dcd.sun .dn{color:var(--sun)}.dcd.sat .dn{color:var(--sat)}
+.dcd .dm{font-size:13px;line-height:1}
+.dcd.today{box-shadow:inset 0 0 0 1px var(--accent)}
+.dcd.sel{background:var(--accent2);border-color:var(--accent)}
+.dsec{display:flex;flex-direction:column;gap:5px;margin-bottom:12px}
+.dsec>label{font-size:12px;font-weight:700;color:var(--sub)}
+.dpick{display:flex;flex-wrap:wrap;gap:5px}
+.dpb{border:1px solid var(--line);background:var(--panel2);border-radius:9px;padding:5px 8px;display:flex;flex-direction:column;align-items:center;min-width:58px;opacity:.7}
+.dpb:hover{opacity:1;border-color:var(--accent-l)}
+.dpb .ic{font-size:20px;line-height:1.2}
+.dpb .ic.bars{font-size:16px;color:var(--ok);font-family:monospace}
+.dpb small{font-size:10.5px;color:var(--sub)}
+.dpb.on{opacity:1;background:var(--accent2);border-color:var(--accent)}
+.dpb.on small{color:var(--text)}
+.dqgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 14px}
+.dtags{display:flex;flex-wrap:wrap;gap:5px;align-items:center;margin-top:5px}
+.dtag{font-size:12px;background:var(--accent2);color:var(--accent-t);border:1px solid var(--accent-l);border-radius:12px;padding:1px 8px;display:inline-flex;gap:4px;align-items:center}
+.dtag button{border:0;background:transparent;color:var(--accent-t);font-size:10px;padding:0}
+.dtag.sug{background:transparent;border-style:dashed;color:var(--sub);cursor:pointer}
+.dtag.sm{font-size:11px}
+.dli{display:flex;gap:14px;align-items:flex-start;background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-bottom:8px;cursor:pointer}
+.dli:hover{border-color:var(--accent-l);background:var(--hover)}
+.dld{display:flex;flex-direction:column;align-items:center;min-width:48px}
+.dld b{font-size:15px}
+.dli-ic{font-size:20px;min-width:52px}
+.dlt{font-weight:700;margin-bottom:2px}
+.dls{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+@media (max-width:1100px){.dwrap{grid-template-columns:1fr}.dqgrid{grid-template-columns:1fr}}
 /* 설정·공휴일 */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-width:1000px}
 .card h3{margin:0 0 6px;font-size:14px}
@@ -409,6 +461,7 @@ table.hol tr.wk td.dt{color:var(--mute)}
         <button data-view="list">업무 목록</button>
         <button data-view="routine">루틴</button>
         <button data-view="defects">결함 이력</button>
+        <button data-view="diary">일기</button>
         <button data-view="holidays">공휴일</button>
         <button data-view="settings">설정</button>
       </div>
@@ -436,6 +489,7 @@ table.hol tr.wk td.dt{color:var(--mute)}
       </section>
       <section id="view-routine" class="view"><div id="rtRoot"></div></section>
       <section id="view-defects" class="view"><div id="dfRoot"></div></section>
+      <section id="view-diary" class="view"><div id="dyRoot"></div></section>
       <section id="view-holidays" class="view"><div id="holRoot"></div></section>
       <section id="view-settings" class="view">
         <div class="card">
@@ -630,7 +684,7 @@ function load(){
   try{Object.assign(settings,JSON.parse(localStorage.getItem(SKEY)||'{}')||{});}catch(e){}
   applyHol();
   tasks.forEach(t=>{if(t.type==='meeting')migrateMeeting(t);});
-  loadRoutines();loadDefects();
+  loadRoutines();loadDefects();loadDiaries();
   setTimeout(()=>rCheckTimers(true),500);
 }
 function sanitizeTasks(arr){
@@ -1690,9 +1744,9 @@ function renderHolidays(){
 function isWorkdayBase(s){const w=dow(s);return w!==0&&w!==6;}
 
 /* ================= 화면 전환 / 설정 ================= */
-function setView(v){view=v;setTimeout(fixWeekbar,0);document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
+function setView(v){if(view==='diary'&&v!=='diary')dyUnlocked=false;view=v;setTimeout(fixWeekbar,0);document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===v));
   document.querySelectorAll('.view').forEach(s=>s.classList.toggle('on',s.id==='view-'+v));
-  if(v==='dash')renderDash();if(v==='list'){try{renderList();}catch(e){console.error(e);toast('업무 목록 표시 오류: '+e.message);}}if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();if(v==='defects')renderDefects();}
+  if(v==='dash')renderDash();if(v==='list'){try{renderList();}catch(e){console.error(e);toast('업무 목록 표시 오류: '+e.message);}}if(v==='settings')fillSettings();if(v==='holidays')renderHolidays();if(v==='routine')renderRoutine();if(v==='defects')renderDefects();if(v==='diary')renderDiary();}
 function fillSettings(){$('#sKey').value=settings.apiKey||'';$('#sModel').value=settings.model||'';$('#sUseAI').checked=!!settings.useAI;$('#sLead').value=settings.leadDefault;}
 function setChat(open,noSave){
   $('#app').classList.toggle('chat-off',!open);
@@ -1726,9 +1780,9 @@ function bind(){
   $('#sTest').onclick=async()=>{const msg=$('#sTestMsg');const keep={...settings};settings.apiKey=$('#sKey').value.trim();settings.model=$('#sModel').value.trim()||settings.model;msg.textContent='확인 중…';
     try{const r=await callAI([{role:'user',content:'연결 테스트입니다. "OK"라고만 답하세요.'}],'짧게 답한다.');msg.textContent='✅ 연결 성공: '+r.slice(0,40);}catch(e){msg.textContent='❌ 실패: '+e.message;}finally{settings.apiKey=keep.apiKey;settings.model=keep.model;}};
   $('#sSaveLead').onclick=()=>{const n=parseInt($('#sLead').value,10);if(isNaN(n)||n<0){toast('0 이상의 숫자를 입력하세요');return;}settings.leadDefault=n;saveSettings();toast('저장했습니다');};
-  $('#sBackup').onclick=()=>download(`업무현황_백업_${today().replace(/-/g,'')}.json`,new Blob([JSON.stringify({tasks,routines,defects,settings:{...settings,apiKey:''}},null,1)],{type:'application/json'}));
+  $('#sBackup').onclick=()=>download(`업무현황_백업_${today().replace(/-/g,'')}.json`,new Blob([JSON.stringify({tasks,routines,defects,diaries,settings:{...settings,apiKey:''}},null,1)],{type:'application/json'}));
   $('#sRestore').onchange=e=>{const file=e.target.files[0];if(!file)return;const r=new FileReader();r.onload=()=>{try{const j=JSON.parse(r.result);const arr=Array.isArray(j)?j:j.tasks;if(!Array.isArray(arr))throw 0;
-    if(!confirm(`백업의 업무 ${arr.length}건으로 현재 데이터를 교체할까요?`))return;tasks=arr;if(j.settings){const k=settings.apiKey;Object.assign(settings,j.settings);settings.apiKey=k;if(!Array.isArray(j.settings.holidayList))settings.holidayList=null;saveSettings();}if(Array.isArray(j.routines)){routines=j.routines;saveRoutines();}if(Array.isArray(j.defects)){defects=j.defects;saveDefects();}save();renderAll();fillSettings();toast('불러왔습니다');}catch(err){toast('올바른 백업 파일이 아닙니다');}};r.readAsText(file);e.target.value='';};
+    if(!confirm(`백업의 업무 ${arr.length}건으로 현재 데이터를 교체할까요?`))return;tasks=arr;if(j.settings){const k=settings.apiKey;Object.assign(settings,j.settings);settings.apiKey=k;if(!Array.isArray(j.settings.holidayList))settings.holidayList=null;saveSettings();}if(Array.isArray(j.routines)){routines=j.routines;saveRoutines();}if(Array.isArray(j.defects)){defects=j.defects;saveDefects();}if(Array.isArray(j.diaries)){diaries=j.diaries;saveDiaries();}save();renderAll();fillSettings();toast('불러왔습니다');}catch(err){toast('올바른 백업 파일이 아닙니다');}};r.readAsText(file);e.target.value='';};
   $('#sClear').onclick=()=>{if(confirm('모든 업무 데이터를 삭제할까요? (되돌릴 수 없음)'+(cloud.user?'\n※ 로그인 상태이므로 클라우드 데이터도 삭제됩니다.':''))&&confirm('정말 삭제할까요? 백업을 먼저 받아두는 것을 권장합니다.')){tasks=[];save();renderAll();toast('전체 삭제했습니다');}};
 }
 function welcome(){
@@ -2244,6 +2298,173 @@ function openIcsDialog(){
   draw();dlg.append(body);document.body.append(dlg);
 }
 
+
+/* ================= 일기 ================= */
+const VKEY='wm_diary_v1';
+let diaries=[];
+const WEATHERS=[['sun','☀️','맑음'],['partly','⛅','구름 조금'],['cloud','☁️','흐림'],['rain','🌧️','비'],['storm','⛈️','뇌우'],['snow','🌨️','눈'],['fog','🌫️','안개'],['wind','💨','바람'],['hot','🥵','더움'],['cold','🥶','추움']];
+const MOODS=[[1,'😞','많이 안 좋음'],[2,'😕','별로'],[3,'😐','보통'],[4,'🙂','좋음'],[5,'😄','아주 좋음']];
+const DQS=[['thanks','🙏 감사한 일','오늘 고마웠던 사람·순간'],['good','👍 잘한 일','작더라도 스스로 칭찬할 일'],['regret','😔 아쉬운 일','다음엔 다르게 하고 싶은 것'],['tomorrow','⭐ 내일 중요한 한 가지','내일 꼭 해낼 한 가지']];
+function loadDiaries(){try{diaries=JSON.parse(localStorage.getItem(VKEY)||'[]')||[];}catch(e){diaries=[];}if(!Array.isArray(diaries))diaries=[];diaries=diaries.filter(x=>x&&isValidDate(x.date));}
+function saveDiaries(){try{localStorage.setItem(VKEY,JSON.stringify(diaries));}catch(e){}if(typeof cloudPushDiary==='function')cloudPushDiary();}
+const dyget=d=>diaries.find(x=>x.date===d)||null;
+function dyEmpty(x){return !x||(!x.mood&&!x.cond&&!x.weather&&!String(x.title||'').trim()&&!String(x.body||'').trim()&&!(x.tags||[]).length&&!Object.values(x.q||{}).some(v=>String(v||'').trim()));}
+/* ---- PIN ---- */
+let dyUnlocked=false,dyLastAct=Date.now(),dyFail=0,dyLockUntil=0;
+const DY_IDLE_MIN=10;
+async function pinHash(pin,salt){
+  const txt=`${salt}:${pin}:work-status-diary`;
+  try{if(window.crypto&&crypto.subtle){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(txt));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}}catch(e){}
+  let h=2166136261;for(let i=0;i<5000;i++)for(const c of txt+i){h^=c.charCodeAt(0);h=Math.imul(h,16777619)>>>0;}return 'f'+h.toString(16);
+}
+function dyLock(){dyUnlocked=false;if(view==='diary')renderDiary();}
+['click','keydown','input'].forEach(ev=>document.addEventListener(ev,()=>{dyLastAct=Date.now();},true));
+setInterval(()=>{if(dyUnlocked&&Date.now()-dyLastAct>DY_IDLE_MIN*60000){dyLock();toast('일정 시간 사용하지 않아 일기를 잠갔습니다');}},15000);
+function pinPad(title,sub,onDone,{extra=null}={}){
+  let val='';
+  const dots=el('div',{class:'pindots'});
+  const msg=el('div',{class:'pinmsg'},sub||'');
+  const drawDots=()=>{dots.innerHTML='';for(let i=0;i<6;i++)dots.append(el('span',{class:i<val.length?'on':''}));};
+  const push=async k=>{
+    if(dyLockUntil>Date.now()){msg.textContent=`잠시 후 다시 시도하세요 (${Math.ceil((dyLockUntil-Date.now())/1000)}초)`;return;}
+    if(k==='del')val=val.slice(0,-1);else if(k==='clr')val='';else if(val.length<6)val+=k;
+    drawDots();
+    if(val.length===6){const v=val;val='';setTimeout(drawDots,150);const r=await onDone(v);if(typeof r==='string'){msg.textContent=r;box.classList.remove('shake');void box.offsetWidth;box.classList.add('shake');}}
+  };
+  const keys=['1','2','3','4','5','6','7','8','9','clr','0','del'];
+  const inp=el('input',{type:'password',inputmode:'numeric',autocomplete:'off',class:'pinhidden',onkeydown:e=>{if(/^[0-9]$/.test(e.key)){e.preventDefault();push(e.key);}else if(e.key==='Backspace'){e.preventDefault();push('del');}}});
+  const box=el('div',{class:'pinbox',onclick:()=>inp.focus()},el('div',{class:'pinlock'},'🔒'),el('h2',{},title),dots,msg,
+    el('div',{class:'pinkeys'},...keys.map(k=>el('button',{type:'button',class:'pk'+(k.length>1?' fn':''),onclick:e=>{e.stopPropagation();push(k);inp.focus();}},k==='del'?'⌫':k==='clr'?'지움':k))),inp,extra);
+  drawDots();setTimeout(()=>inp.focus(),50);
+  return box;
+}
+function diaryLockScreen(root){
+  const has=!!settings.diaryPin;
+  if(!has){
+    let first=null;
+    const wrap=el('div',{class:'pinwrap'});
+    const step=()=>{wrap.innerHTML='';
+      wrap.append(first==null?pinPad('일기 PIN 만들기','일기를 보호할 숫자 6자리를 입력하세요',async v=>{first=v;step();}):
+        pinPad('PIN 확인','같은 숫자 6자리를 한 번 더 입력하세요',async v=>{if(v!==first){first=null;setTimeout(step,900);return '처음 입력과 다릅니다. 다시 만들어 주세요';}
+          const salt=uid();settings.diaryPin={salt,hash:await pinHash(v,salt)};saveSettings();dyUnlocked=true;dyLastAct=Date.now();toast('일기 PIN을 만들었습니다');renderDiary();}));};
+    step();root.append(wrap);return;
+  }
+  root.append(el('div',{class:'pinwrap'},pinPad('일기 잠금','PIN 6자리를 입력하세요',async v=>{
+    const p=settings.diaryPin;if(await pinHash(v,p.salt)===p.hash){dyFail=0;dyUnlocked=true;dyLastAct=Date.now();renderDiary();return;}
+    dyFail++;if(dyFail>=5){dyLockUntil=Date.now()+30000;dyFail=0;return '5회 틀렸습니다. 30초 후 다시 시도하세요';}
+    return `PIN이 맞지 않습니다 (${dyFail}/5)`;
+  },{extra:el('button',{type:'button',class:'btn sm',style:'margin-top:14px',onclick:e=>{e.stopPropagation();diaryForgotPin();}},'PIN을 잊었어요')})));
+}
+async function diaryForgotPin(){
+  if(cloud&&cloud.user&&cloud.auth&&cloud.auth.currentUser&&cloud.auth.currentUser.reauthenticateWithPopup){
+    if(!confirm(`로그인한 구글 계정(${cloud.user.email})으로 본인 확인 후 PIN을 새로 만듭니다. 일기는 그대로 유지됩니다.`))return;
+    try{await cloud.auth.currentUser.reauthenticateWithPopup(new firebase.auth.GoogleAuthProvider());delete settings.diaryPin;saveSettings();toast('본인 확인 완료 · 새 PIN을 만들어 주세요');renderDiary();}
+    catch(e){toast('본인 확인에 실패했습니다');}
+    return;
+  }
+  if(confirm('로그인하지 않은 상태에서는 PIN을 초기화하려면 이 PC에 저장된 일기를 모두 지워야 합니다.\n(구글 로그인 상태라면 로그인 후 다시 시도하면 일기를 유지한 채 초기화할 수 있습니다)\n\n일기를 지우고 PIN을 초기화할까요?')&&confirm('정말 모든 일기를 지울까요? 되돌릴 수 없습니다.')){
+    diaries=[];saveDiaries();delete settings.diaryPin;saveSettings();renderDiary();toast('일기와 PIN을 초기화했습니다');
+  }
+}
+function diaryChangePin(){
+  const bg=el('div',{class:'icsbg',onclick:e=>{if(e.target===bg)bg.remove();}});
+  let cur=null,nw=null;
+  const box=el('div',{class:'icsbox',style:'width:min(420px,100%)'});
+  const step=()=>{box.innerHTML='';box.append(el('div',{style:'text-align:right'},el('button',{class:'btn sm',onclick:()=>bg.remove()},'✕')));
+    if(cur==null)box.append(pinPad('현재 PIN','현재 PIN 6자리를 입력하세요',async v=>{const p=settings.diaryPin;if(await pinHash(v,p.salt)!==p.hash)return 'PIN이 맞지 않습니다';cur=v;step();}));
+    else if(nw==null)box.append(pinPad('새 PIN','새 숫자 6자리를 입력하세요',async v=>{nw=v;step();}));
+    else box.append(pinPad('새 PIN 확인','한 번 더 입력하세요',async v=>{if(v!==nw){nw=null;setTimeout(step,900);return '입력이 다릅니다. 다시 입력하세요';}const salt=uid();settings.diaryPin={salt,hash:await pinHash(v,salt)};saveSettings();bg.remove();toast('PIN을 변경했습니다');}));};
+  step();bg.append(box);document.body.append(bg);
+}
+/* ---- 화면 ---- */
+let dyView='write',dySel=today(),dyMonth=today().slice(0,7),dyQ='',dyTag='';
+function renderDiary(){
+  const root=$('#dyRoot');if(!root||view!=='diary')return;
+  root.innerHTML='';
+  if(!dyUnlocked){diaryLockScreen(root);return;}
+  root.append(el('div',{class:'rtbar'},
+    el('div',{class:'tabs',style:'margin:0'},el('button',{class:dyView==='write'?'on':'',onclick:()=>{dyView='write';renderDiary();}},'일기 쓰기'),el('button',{class:dyView==='list'?'on':'',onclick:()=>{dyView='list';renderDiary();}},'목록·검색')),
+    el('span',{class:'hint',id:'dyStat',style:'margin-left:8px'},`${diaries.length}편 · 연속 ${dyStreak()}일 작성`),
+    el('div',{class:'spacer'}),
+    el('button',{class:'btn sm',onclick:diaryChangePin},'PIN 변경'),
+    el('button',{class:'btn sm',onclick:()=>{dyLock();toast('일기를 잠갔습니다');}},'🔒 잠그기')));
+  root.append(dyView==='write'?diaryWrite():diaryList());
+}
+function dyStreak(){let n=0,d=today();if(!dyget(d))d=addDays(d,-1);while(dyget(d)&&!dyEmpty(dyget(d))){n++;d=addDays(d,-1);}return n;}
+function diaryCalendar(){
+  const [y,m]=dyMonth.split('-').map(Number);const first=new Date(y,m-1,1),last=new Date(y,m,0).getDate();const lead=(first.getDay()+6)%7;const T=today();
+  const shift=n=>{dyMonth=fmt(new Date(y,m-1+n,1)).slice(0,7);renderDiary();};
+  const cnt=diaries.filter(x=>x.date.startsWith(dyMonth)&&!dyEmpty(x)).length;
+  const grid=el('div',{class:'dcal'},...['월','화','수','목','금','토','일'].map((w,i)=>el('div',{class:'dcw'+(i===5?' sat':i===6?' sun':'')},w)));
+  for(let i=0;i<lead;i++)grid.append(el('div',{}));
+  for(let dd=1;dd<=last;dd++){const ds=`${dyMonth}-${pad(dd)}`;const x=dyget(ds);const has=x&&!dyEmpty(x);const w=dow(ds);
+    grid.append(el('button',{class:'dcd'+(ds===dySel?' sel':'')+(ds===T?' today':'')+(w===0||HOL.has(ds)?' sun':w===6?' sat':''),disabled:ds>T,title:has?(x.title||'일기 있음'):'',onclick:()=>{dySel=ds;renderDiary();}},
+      el('span',{class:'dn'},String(dd)),has?el('span',{class:'dm m'+(x.mood||0)},x.mood?MOODS[x.mood-1][1]:(x.weather?(WEATHERS.find(w=>w[0]===x.weather)||[])[1]:'•')):null));}
+  return el('div',{class:'card dcalbox'},
+    el('div',{class:'row-inline',style:'margin:0 0 8px'},el('button',{class:'btn sm',onclick:()=>shift(-1)},'◀'),el('b',{style:'font-size:15px'},`${y}년 ${m}월`),el('button',{class:'btn sm',onclick:()=>shift(1)},'▶'),el('div',{class:'spacer'}),el('button',{class:'btn sm',onclick:()=>{dySel=today();dyMonth=dySel.slice(0,7);renderDiary();}},'오늘')),
+    grid,el('div',{class:'hint',style:'margin-top:8px'},`이번 달 ${cnt}편 작성`));
+}
+let _dysaveT=null;
+function diaryWrite(){
+  const wrap=el('div',{class:'dwrap'});
+  wrap.append(diaryCalendar());
+  const ex=dyget(dySel);const x=ex?clone(ex):{id:dySel,date:dySel,mood:0,cond:0,weather:'',title:'',body:'',q:{},tags:[]};
+  x.q=x.q||{};x.tags=x.tags||[];
+  const status=el('span',{class:'hint'},ex?`저장됨 · ${ex.updated||''}`:'새 일기');
+  const persist=()=>{clearTimeout(_dysaveT);status.textContent='입력 중…';_dysaveT=setTimeout(()=>{
+    const i=diaries.findIndex(y=>y.date===x.date);{const n=new Date();x.updated=`${today()} ${pad(n.getHours())}:${pad(n.getMinutes())}`;}
+    if(dyEmpty(x)){if(i>=0)diaries.splice(i,1);}else if(i>=0)diaries[i]=clone(x);else diaries.push(clone(x));
+    diaries.sort((a,b)=>a.date.localeCompare(b.date));saveDiaries();status.textContent='저장됨 ✓';const st=$('#dyStat');if(st)st.textContent=`${diaries.length}편 · 연속 ${dyStreak()}일 작성`;
+    const cal=document.querySelector('.dcalbox');if(cal)cal.replaceWith(diaryCalendar());},700);};
+  const pick=(k,v)=>{x[k]=x[k]===v?(typeof v==='number'?0:''):v;persist();renderPick();};
+  const wRow=el('div',{class:'dpick'}),mRow=el('div',{class:'dpick'}),cRow=el('div',{class:'dpick'});
+  const renderPick=()=>{
+    wRow.innerHTML='';WEATHERS.forEach(([k,ic,l])=>wRow.append(el('button',{type:'button',class:'dpb'+(x.weather===k?' on':''),title:l,onclick:()=>pick('weather',k)},el('span',{class:'ic'},ic),el('small',{},l))));
+    mRow.innerHTML='';MOODS.forEach(([v,ic,l])=>mRow.append(el('button',{type:'button',class:'dpb mood m'+v+(x.mood===v?' on':''),title:l,onclick:()=>pick('mood',v)},el('span',{class:'ic'},ic),el('small',{},l))));
+    cRow.innerHTML='';[1,2,3,4,5].forEach(v=>cRow.append(el('button',{type:'button',class:'dpb cond'+(x.cond===v?' on':''),title:['','매우 피곤','피곤','보통','좋음','최상'][v],onclick:()=>pick('cond',v)},el('span',{class:'ic bars'},['','▁','▂','▄','▆','█'][v]),el('small',{},['','매우 피곤','피곤','보통','좋음','최상'][v]))));
+  };
+  renderPick();
+  const ta=(val,ph,fn,h)=>{const t=el('textarea',{placeholder:ph,style:`min-height:${h||60}px`,oninput:e=>{fn(e.target.value);persist();}});t.value=val||'';return t;};
+  const tagIn=el('input',{type:'text',placeholder:'태그 입력 후 Enter (예: 가족, 운동)',onkeydown:e=>{if((e.key==='Enter'||e.key===',')&&!e.isComposing){e.preventDefault();const v=e.target.value.replace(/^#/,'').trim();if(v&&!x.tags.includes(v)){x.tags.push(v);persist();drawTags();}e.target.value='';}}});
+  const tagBox=el('div',{class:'dtags'});
+  const drawTags=()=>{tagBox.innerHTML='';x.tags.forEach((t,i)=>tagBox.append(el('span',{class:'dtag'},'#'+t,el('button',{type:'button',onclick:()=>{x.tags.splice(i,1);persist();drawTags();}},'✕'))));
+    const used=[...new Set(diaries.flatMap(y=>y.tags||[]))].filter(t=>!x.tags.includes(t)).slice(0,12);
+    if(used.length)tagBox.append(el('span',{class:'hint',style:'margin-left:6px'},'자주 쓴 태그:'),...used.map(t=>el('button',{type:'button',class:'dtag sug',onclick:()=>{x.tags.push(t);persist();drawTags();}},'#'+t)));};
+  drawTags();
+  const w=dow(dySel);
+  const ed=el('div',{class:'card dedit'},
+    el('div',{class:'row-inline',style:'margin:0 0 10px'},el('h2',{style:'margin:0;font-size:17px'},`${dySel.replace(/-/g,'. ')} (${WD[w]})`),status,el('div',{class:'spacer'}),
+      ex?el('button',{class:'btn sm danger',onclick:()=>{if(confirm(`${dySel} 일기를 삭제할까요?`)){diaries=diaries.filter(y=>y.date!==dySel);saveDiaries();renderDiary();toast('삭제했습니다');}}},'삭제'):null),
+    el('div',{class:'dsec'},el('label',{},'날씨'),wRow),
+    el('div',{class:'grid',style:'grid-template-columns:1fr 1fr'},el('div',{class:'dsec'},el('label',{},'기분'),mRow),el('div',{class:'dsec'},el('label',{},'컨디션'),cRow)),
+    el('div',{class:'dsec'},el('label',{},'한 줄 요약'),el('input',{type:'text',value:x.title||'',placeholder:'오늘을 한 줄로',oninput:e=>{x.title=e.target.value;persist();}})),
+    el('div',{class:'dsec'},el('label',{},'오늘의 일기'),ta(x.body,'자유롭게 적어보세요',v=>{x.body=v;},180)),
+    el('div',{class:'dqgrid'},...DQS.map(([k,l,ph])=>el('div',{class:'dsec dq'},el('label',{},l),ta(x.q[k],ph,v=>{x.q[k]=v;},64)))),
+    el('div',{class:'dsec'},el('label',{},'태그'),tagIn,tagBox));
+  wrap.append(ed);
+  return wrap;
+}
+function diaryList(){
+  const wrap=el('div',{});
+  const tags=[...new Set(diaries.flatMap(x=>x.tags||[]))].sort();
+  const q=el('input',{type:'text',placeholder:'일기 내용·요약·질문 답변 검색',value:dyQ,oninput:e=>{dyQ=e.target.value;fill();}});
+  wrap.append(el('div',{class:'tabs'},el('button',{class:!dyTag?'on':'',onclick:()=>{dyTag='';renderDiary();}},'전체'),...tags.map(t=>el('button',{class:dyTag===t?'on':'',onclick:()=>{dyTag=t;renderDiary();}},'#'+t)),q));
+  const box=el('div',{});wrap.append(box);
+  const fill=()=>{box.innerHTML='';const ql=dyQ.trim().toLowerCase();
+    const rows=diaries.filter(x=>!dyEmpty(x)&&(!dyTag||(x.tags||[]).includes(dyTag))&&(!ql||JSON.stringify([x.title,x.body,x.q,x.tags]).toLowerCase().includes(ql))).sort((a,b)=>b.date.localeCompare(a.date));
+    if(!rows.length){box.append(el('div',{class:'hint',style:'padding:24px;text-align:center'},diaries.length?'조건에 맞는 일기가 없습니다.':'아직 쓴 일기가 없습니다.'));return;}
+    rows.forEach(x=>{const wt=WEATHERS.find(w=>w[0]===x.weather);
+      const snip=[x.body,...DQS.map(([k])=>x.q&&x.q[k])].filter(v=>String(v||'').trim()).join(' · ').replace(/\s+/g,' ').slice(0,140);
+      box.append(el('div',{class:'dli',onclick:()=>{dySel=x.date;dyMonth=x.date.slice(0,7);dyView='write';renderDiary();}},
+        el('div',{class:'dld'},el('b',{},x.date.slice(5).replace('-','/')),el('span',{},WD[dow(x.date)]),el('span',{class:'hint'},x.date.slice(0,4))),
+        el('div',{class:'dli-ic'},x.mood?MOODS[x.mood-1][1]:'',wt?wt[1]:''),
+        el('div',{style:'flex:1;min-width:0'},el('div',{class:'dlt'},x.title||'(요약 없음)'),el('div',{class:'hint dls'},snip),
+          (x.tags||[]).length?el('div',{class:'dtags',style:'margin-top:4px'},...x.tags.map(t=>el('span',{class:'dtag sm'},'#'+t))):null)));});
+  };
+  fill();
+  return wrap;
+}
+
 /* ================= Firebase 클라우드 동기화 ================= */
 const FIREBASE_CONFIG={
   apiKey:"AIzaSyAZjFBOY5IFkSA6tivSusCB8xEIX_Q_4IE",
@@ -2253,11 +2474,11 @@ const FIREBASE_CONFIG={
   messagingSenderId:"1019655919073",
   appId:"1:1019655919073:web:9732a1fc0aa8ce7072eea0"
 };
-const cloud={dSynced:new Map(),dReady:false,unsubD:null,rSynced:new Map(),rReady:false,unsubR:null,ok:false,auth:null,db:null,user:null,ready:false,unsubT:null,unsubS:null,synced:new Map(),setSynced:'',pending:0,offline:false,err:''};
+const cloud={vSynced:new Map(),vReady:false,unsubV:null,dSynced:new Map(),dReady:false,unsubD:null,rSynced:new Map(),rReady:false,unsubR:null,ok:false,auth:null,db:null,user:null,ready:false,unsubT:null,unsubS:null,synced:new Map(),setSynced:'',pending:0,offline:false,err:''};
 function stableStr(v){if(Array.isArray(v))return '['+v.map(stableStr).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableStr(v[k])).join(',')+'}';return JSON.stringify(v===undefined?null:v);}
 const cleanObj=o=>JSON.parse(JSON.stringify(o));
 const userRef=()=>cloud.db.collection('users').doc(cloud.user.uid);
-const cloudSettings=()=>{const o={};['holidayList','leadDefault','model','useAI'].forEach(k=>{if(settings[k]!==undefined)o[k]=settings[k];});return cleanObj(o);};
+const cloudSettings=()=>{const o={};['holidayList','leadDefault','model','useAI','diaryPin'].forEach(k=>{if(settings[k]!==undefined)o[k]=settings[k];});return cleanObj(o);};
 function cloudInit(){
   try{
     if(!window.firebase||!firebase.initializeApp)throw new Error('SDK 없음');
@@ -2290,7 +2511,7 @@ async function cloudLogout(){
   if(!cloud.user)return;
   const wipe=confirm('로그아웃합니다.\n\n이 PC 브라우저에 남아 있는 업무 데이터도 지울까요?\n(공용 PC라면 [확인] 권장 · 클라우드 데이터는 그대로 유지됩니다)');
   await cloud.auth.signOut();
-  if(wipe){tasks=[];routines=[];defects=[];try{localStorage.removeItem(KEY);localStorage.removeItem(RKEY);localStorage.removeItem(DKEY);localStorage.removeItem('wm_cloud_uid');}catch(e){}renderAll();toast('로그아웃 · 이 PC 데이터 삭제');}
+  if(wipe){tasks=[];routines=[];defects=[];diaries=[];dyUnlocked=false;try{localStorage.removeItem(KEY);localStorage.removeItem(RKEY);localStorage.removeItem(DKEY);localStorage.removeItem(VKEY);localStorage.removeItem('wm_cloud_uid');}catch(e){}renderAll();toast('로그아웃 · 이 PC 데이터 삭제');}
   else toast('로그아웃했습니다');
 }
 async function cloudStart(u){
@@ -2332,6 +2553,18 @@ async function cloudStart(u){
         cloud.dReady=true;if(view==='defects')renderDefects();
       }
     },cloudError);
+    const vsnap=await ur.collection('diary').get();
+    const vvIds=new Set(vsnap.docs.map(x=>x.id));
+    const vLocal=lastUid===u.uid?[]:diaries.filter(x=>x&&x.date&&!vvIds.has(x.date));
+    if(vLocal.length&&confirm(`이 PC에만 있는 일기 ${vLocal.length}편을 클라우드에 올릴까요?`))await batchWrite(vLocal.map(x=>({op:'set',id:x.date,data:x})),'diary');
+    cloud.unsubV=ur.collection('diary').onSnapshot({includeMetadataChanges:true},qs=>{
+      if(!qs.metadata.hasPendingWrites||!cloud.vReady){
+        const arr=qs.docs.map(x=>x.data()).filter(x=>x&&isValidDate(x.date)).sort((a,b)=>a.date.localeCompare(b.date));
+        cloud.vSynced=new Map(arr.map(x=>[x.date,stableStr(x)]));
+        diaries=arr;try{localStorage.setItem(VKEY,JSON.stringify(diaries));}catch(e){}
+        cloud.vReady=true;if(view==='diary'&&dyUnlocked&&!(document.activeElement&&document.activeElement.closest&&document.activeElement.closest('.dedit')))renderDiary();
+      }
+    },cloudError);
     const sdoc=await ur.collection('meta').doc('settings').get();
     if(!sdoc.exists)await ur.collection('meta').doc('settings').set(cloudSettings());
     try{localStorage.setItem('wm_cloud_uid',u.uid);}catch(e){}
@@ -2352,12 +2585,12 @@ async function cloudStart(u){
       const d=ds.data();cloud.setSynced=stableStr(d);
       const k=settings.apiKey;Object.assign(settings,d);settings.apiKey=k;
       try{localStorage.setItem(SKEY,JSON.stringify(settings));}catch(e){}
-      applyHol();renderAll();if(view==='holidays')renderHolidays();if(view==='settings')fillSettings();
+      applyHol();renderAll();if(view==='holidays')renderHolidays();if(view==='settings')fillSettings();if(view==='diary'&&!dyUnlocked)renderDiary();
     },cloudError);
   }catch(e){cloudError(e);}
 }
 function cloudStop(){
-  if(cloud.unsubT)cloud.unsubT();if(cloud.unsubS)cloud.unsubS();if(cloud.unsubR)cloud.unsubR();cloud.unsubR=null;if(cloud.unsubD)cloud.unsubD();cloud.unsubD=null;cloud.dReady=false;cloud.dSynced=new Map();cloud.rReady=false;cloud.rSynced=new Map();
+  if(cloud.unsubT)cloud.unsubT();if(cloud.unsubS)cloud.unsubS();if(cloud.unsubR)cloud.unsubR();cloud.unsubR=null;if(cloud.unsubD)cloud.unsubD();cloud.unsubD=null;if(cloud.unsubV)cloud.unsubV();cloud.unsubV=null;cloud.vReady=false;cloud.vSynced=new Map();cloud.dReady=false;cloud.dSynced=new Map();cloud.rReady=false;cloud.rSynced=new Map();
   cloud.unsubT=cloud.unsubS=null;cloud.user=null;cloud.ready=false;cloud.synced=new Map();renderSync();
 }
 async function batchWrite(ops,colName){
@@ -2376,6 +2609,15 @@ function cloudPushTasks(){
   if(!ops.length)return;
   cloud.pending++;renderSync();
   batchWrite(ops).then(()=>{cloud.pending--;renderSync();}).catch(e=>{cloud.pending--;cloudError(e);});
+}
+function cloudPushDiary(){
+  if(!cloud.user||!cloud.vReady)return;
+  const ops=[],ids=new Set();
+  for(const x of diaries){if(!x||!x.date)continue;ids.add(x.date);const st=stableStr(cleanObj(x));if(cloud.vSynced.get(x.date)!==st){ops.push({op:'set',id:x.date,data:x});cloud.vSynced.set(x.date,st);}}
+  for(const id of [...cloud.vSynced.keys()])if(!ids.has(id)){ops.push({op:'del',id});cloud.vSynced.delete(id);}
+  if(!ops.length)return;
+  cloud.pending++;renderSync();
+  batchWrite(ops,'diary').then(()=>{cloud.pending--;renderSync();}).catch(e=>{cloud.pending--;cloudError(e);});
 }
 function cloudPushDefects(){
   if(!cloud.user||!cloud.dReady)return;
