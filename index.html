@@ -301,6 +301,11 @@ td.rname:hover .rmove{opacity:1}
 .rmove button{border:1px solid var(--line);background:var(--panel2);color:var(--sub);border-radius:4px;font-size:9px;line-height:14px;padding:1px 4px}
 .rmove button:hover:not(:disabled){color:var(--text);border-color:var(--accent)}
 .rmove button:disabled{opacity:.3;cursor:default}
+.mslot{border-collapse:collapse}
+.mslot th{font-size:11.5px;color:var(--sub);padding:2px 6px;font-weight:600}
+.mslot td{padding:2px}
+.mslot button{width:34px;height:26px;border:1px solid var(--line);background:var(--panel2);border-radius:5px;color:var(--ok);font-weight:800}
+.mslot button.on{background:var(--accent);border-color:var(--accent);color:#fff}
 /* 설정·공휴일 */
 .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:12px;max-width:1000px}
 .card h3{margin:0 0 6px;font-size:14px}
@@ -497,6 +502,8 @@ const FORMS={
     f('grade','등급','seg',1,['A','B','C'],{desc:{A:'핵심',B:'성장',C:'습관'},long:{A:'핵심 목표에 직접 연결 · 매번 수행 (바쁜 날은 최소 버전)',B:'도움이 되는 성장 활동 · 주기 안에서 목표를 채우면 됨',C:'하면 좋은 습관 · 못 해도 미수행 표시 없음'},hint:'A 핵심: 핵심 목표에 직접 연결 · 매번 수행, 바쁜 날은 최소 버전 (가중치 2.0)\nB 성장: 도움이 되는 활동 · 주기 안에서 목표를 채우면 됨 (가중치 1.5)\nC 습관: 하면 좋은 것 · 못 해도 미수행 표시 없음 (가중치 1.0)'}),
     f('cycle','주기','seg',1,['일일','주간','월간'],{hint:'주간·월간은 그 기간 안에 목표를 채우면 완료 (예: 주간 + 횟수 3 = 주 3회)'}),
     f('days','수행 요일','weekdays',0,null,{showIf:d=>d.cycle==='일일'}),
+    f('wdays','수행 요일 (선택 · 여러 개 가능)','weekdays',0,null,{showIf:d=>d.cycle==='주간',allowEmpty:true,hint:'요일을 고르면 그 요일마다 대시보드에서 수행 여부를 체크합니다 (목표는 1회 수행 기준, 주간 달성도 = 요일별 평균)\n고르지 않으면 한 주 전체 기간으로 목표를 채웁니다 (예: 주 3회)'}),
+    f('mslots','수행 주차·요일 (선택 · 여러 개 가능)','mslots',0,null,{showIf:d=>d.cycle==='월간',hint:'"둘째 토요일"처럼 그 달의 n번째 요일입니다. 해당 날짜가 있는 주의 대시보드에 표시되고 그날 수행 여부를 체크합니다'}),
     f('mode','옵션','seg',1,['없음','타이머','횟수'],{hint:'없음: 수행/미수행 체크 · 타이머: 목표 시간(분)을 채우면 완료 · 횟수: 목표 횟수를 채우면 완료'}),
     f('target','목표 (타이머=분 / 횟수=회)','number',0,null,{showIf:d=>d.mode!=='없음'}),
     f('minVal','최소 버전 기준 (A등급 · 선택)','number',0,null,{showIf:d=>d.grade==='A'&&d.mode!=='없음',hint:'바쁜 날 이만큼만 해도 연속기록이 유지됩니다 (예: 목표 30분 / 최소 10분). 체크형 A등급은 체크 버튼을 한 번 더 누르면 "최소"로 기록 (달성도 50%)'}),
@@ -1093,7 +1100,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1109,7 +1116,8 @@ function buildField(d,fd){
       if(d.type==='equipment'&&d.status&&so&&!so.includes(d.status))w.append(el('div',{class:'hint'},`현재 현황 '${d.status}'은(는) 이 구분의 단계에 없습니다.`));break;}
     case 'actions':c=actionsField(d);break;
     case 'skips':c=skipsField(d);break;
-    case 'weekdays':c=weekdaysField(d,fd.k);break;
+    case 'weekdays':c=weekdaysField(d,fd.k,fd.allowEmpty);break;
+    case 'mslots':c=mslotsField(d,fd.k);break;
     case 'sessions':c=sessionsField(d);break;
     case 'prule':c=ruleEditor(d,fd.k);break;
   }
@@ -1185,9 +1193,9 @@ function buildSheets(){
         return [t.title,k,WD[dow(k)],st,e&&e.mode==='cancel'?'':ad,tm,(e&&e.place)||t.place,e?e.reason:'',s.agenda,s.result];}))]],
     ['루틴',[['루틴명','등급','가중치','주기','수행 요일','옵션','목표','최소 버전','시작일','상태','현재 연속','최고 연속','이번 달 달성도','메모'],
       ...routines.map(r=>{const s=rStreak(r);const ym=today().slice(0,7);const x=pd(ym+'-01');const last=fmt(new Date(x.getFullYear(),x.getMonth()+1,0));
-        return [r.title,r.grade,R_W[r.grade],r.cycle,r.cycle==='일일'?ALLDAYS.filter(d=>(r.days||ALLDAYS).includes(d)).map(d=>WD[d]).join(''):'',r.mode,r.mode==='없음'?'':`${r.target}${unit(r)}`,r.minVal?`${r.minVal}${unit(r)}`:'',r.startDate,r.state,s.cur,s.best,pct(rAvg(r,ym+'-01',last)),r.memo];})]],
+        return [r.title,r.grade,R_W[r.grade],r.cycle,schedText(r),r.mode,r.mode==='없음'?'':`${r.target}${unit(r)}`,r.minVal?`${r.minVal}${unit(r)}`:'',r.startDate,r.state,s.cur,s.best,pct(rAvg(r,ym+'-01',last)),r.memo];})]],
     ['루틴_기록',[['루틴명','등급','주기','기간','값','목표','달성률','최소 버전'],
-      ...routines.flatMap(r=>Object.keys(r.logs||{}).sort().map(k=>{const l=r.logs[k];return [r.title,r.grade,r.cycle,k,r.mode==='없음'?(l.done?'완료':l.min?'최소':''):fmtV(Number(l.v)||0),r.mode==='없음'?'':r.target,Math.round(rRatio(r,k)*100)+'%',rMinMet(r,k)?'O':''];}))]],
+      ...routines.flatMap(r=>Object.keys(r.logs||{}).sort().map(k=>{const l=r.logs[k];return [r.title,r.grade,r.cycle,k,r.mode==='없음'?(l.done?'완료':l.min?'최소':''):fmtV(Number(l.v)||0),r.mode==='없음'?'':r.target,Math.round((isSched(r)?rOcc(r,k):rRatio(r,k)||0)*100)+'%',rMinMet(r,k)?'O':''];}))]],
     ['약속',[['약속명','일자','시간','장소','상대방','메모'],...by('appointment').map(t=>[t.title,t.date,t.time,t.place,t.partner,t.memo])]],
     ['공지',[['공지명','세부내용','시작일자','종료일자','시작시간','종료시간','사전공지일수'],...by('notice').map(t=>[t.title,t.detail,t.startDate,t.endDate,t.startTime,t.endTime,t.leadDays])]],
   ];
@@ -1636,7 +1644,7 @@ const R_MODES=['없음','타이머','횟수'];
 const ALLDAYS=[1,2,3,4,5,6,0];
 function loadRoutines(){try{routines=JSON.parse(localStorage.getItem(RKEY)||'[]')||[];}catch(e){routines=[];}}
 function saveRoutines(){try{localStorage.setItem(RKEY,JSON.stringify(routines));}catch(e){}if(typeof cloudPushRoutines==='function')cloudPushRoutines();}
-function blankRoutine(){return {id:uid(),type:'routine',title:'',grade:'B',cycle:'일일',days:[...ALLDAYS],mode:'없음',target:'',minVal:'',startDate:today(),state:'진행',memo:'',logs:{},created:today()};}
+function blankRoutine(){return {id:uid(),type:'routine',title:'',grade:'B',cycle:'일일',days:[...ALLDAYS],wdays:[],mslots:[],mode:'없음',target:'',minVal:'',startDate:today(),state:'진행',memo:'',logs:{},created:today()};}
 /* 기간 키 */
 function rKey(r,d){return r.cycle==='주간'?mondayOf(d):r.cycle==='월간'?d.slice(0,7):d;}
 function pStart(r,k){return r.cycle==='월간'?k+'-01':k;}
@@ -1653,19 +1661,45 @@ function rKeys(r,from,to){const out=[];if(!isValidDate(from)||!isValidDate(to)||
 /* 달성도 */
 const rLog=(r,k)=>(r.logs||{})[k]||null;
 function rVal(r,k){const l=rLog(r,k);if(!l)return 0;let v=Number(l.v)||0;if(r.run&&r.run.key===k)v+=(Date.now()-r.run.start)/60000;return v;}
+const isSched=r=>(r.cycle==='주간'&&Array.isArray(r.wdays)&&r.wdays.length>0)||(r.cycle==='월간'&&Array.isArray(r.mslots)&&r.mslots.length>0);
+function nthWeekday(y,m,n,w){
+  if(n===-1){let d=new Date(y,m,0).getDate();while(new Date(y,m-1,d).getDay()!==w)d--;return fmt(new Date(y,m-1,d));}
+  const f=new Date(y,m-1,1);const x=new Date(y,m-1,1+((w-f.getDay()+7)%7)+(n-1)*7);return x.getMonth()===m-1?fmt(x):null;
+}
+function rSchedIn(r,from,to){
+  const out=[];if(!isSched(r)||!isValidDate(from)||!isValidDate(to))return out;
+  if(r.cycle==='주간'){let d=from;while(d<=to){if(r.wdays.includes(dow(d)))out.push(d);d=addDays(d,1);}}
+  else{let ym=from.slice(0,7),g=0;const end=to.slice(0,7);while(ym<=end&&g++<60){const [y,m]=ym.split('-').map(Number);r.mslots.forEach(sl=>{const d=nthWeekday(y,m,sl.n,sl.w);if(d&&d>=from&&d<=to&&!out.includes(d))out.push(d);});ym=fmt(new Date(y,m,1)).slice(0,7);}out.sort();}
+  return out.filter(d=>d>=r.startDate&&!(r.state==='중지'&&isValidDate(r.pausedAt)&&d>r.pausedAt));
+}
+const NTH=n=>n===-1?'마지막':['','첫째','둘째','셋째','넷째','다섯째'][n];
+function schedText(r){
+  if(r.cycle==='일일')return r.days&&r.days.length&&r.days.length<7?ALLDAYS.filter(x=>r.days.includes(x)).map(x=>WD[x]).join(''):'';
+  if(r.cycle==='주간')return isSched(r)?ALLDAYS.filter(x=>r.wdays.includes(x)).map(x=>WD[x]).join('·'):'';
+  if(r.cycle==='월간')return isSched(r)?[...r.mslots].sort((a,b)=>(a.n===-1?9:a.n)-(b.n===-1?9:b.n)||ALLDAYS.indexOf(a.w)-ALLDAYS.indexOf(b.w)).map(x=>`${NTH(x.n)} ${WD[x.w]}`).join('·'):'';
+  return '';
+}
 function rRatio(r,k){
+  if(!isSched(r))return rOcc(r,k);
+  const ds=rSchedIn(r,pStart(r,k),pEnd(r,k));if(!ds.length)return null;
+  const T=today(),due=ds.filter(d=>d<=T);if(!due.length)return null;
+  return due.reduce((a,d)=>a+rOcc(r,d),0)/due.length;
+}
+function rOcc(r,k){
   const l=rLog(r,k);
   if(r.mode==='없음'){if(!l)return 0;return l.done?1:(l.min?0.5:0);}
   const t=Number(r.target)||0;if(!t)return 0;return Math.min(1,rVal(r,k)/t);
 }
 function rMinMet(r,k){const l=rLog(r,k);if(r.grade!=='A')return false;if(r.mode==='없음')return !!(l&&l.min);const m=Number(r.minVal)||0;return m>0&&rVal(r,k)>=m;}
-const rKept=(r,k)=>rRatio(r,k)>=1||rMinMet(r,k);
+const rOccKept=(r,k)=>rOcc(r,k)>=1||rMinMet(r,k);
+function rKept(r,k){if(!isSched(r))return rOccKept(r,k);const ds=rSchedIn(r,pStart(r,k),pEnd(r,k));return ds.length>0&&ds.every(d=>rOccKept(r,d));}
 function rStreak(r){
   const T=today(),cur=rKey(r,T);const keys=rKeys(r,r.startDate,T);let run=0,best=0;
   for(const k of keys){if(rKept(r,k)){run++;if(run>best)best=run;}else if(k!==cur)run=0;}
   return {cur:run,best};
 }
-function rAvg(r,from,to){const T=today();const e=to<T?to:T;const ks=rKeys(r,from,e).filter(k=>pStart(r,k)<=T);if(!ks.length)return null;return ks.reduce((a,k)=>a+rRatio(r,k),0)/ks.length;}
+function rAvg(r,from,to){const T=today();const e=to<T?to:T;const vs=rKeys(r,from,e).filter(k=>pStart(r,k)<=T).map(k=>rRatio(r,k)).filter(v=>v!=null);if(!vs.length)return null;return vs.reduce((a,v)=>a+v,0)/vs.length;}
+function rOccAvg(r,from,to){const T=today();const ds=rSchedIn(r,from,to<T?to:T);if(!ds.length)return null;return ds.reduce((a,d)=>a+rOcc(r,d),0)/ds.length;}
 function wAvg(items){let sw=0,sv=0;items.forEach(([r,v])=>{if(v==null)return;const w=R_W[r.grade]||1;sw+=w;sv+=w*v;});return sw?sv/sw:null;}
 const pct=v=>v==null?'—':Math.round(v*100)+'%';
 const lvl=v=>v==null?'na':v>=0.8?'hi':v>=0.5?'mid':'lo';
@@ -1681,8 +1715,8 @@ function rTimer(r,k){
 const unit=r=>r.mode==='타이머'?'분':r.mode==='횟수'?'회':'';
 const fmtV=v=>{const x=Math.round(v*10)/10;return Number.isInteger(x)?String(x):x.toFixed(1);};
 /* 컨트롤 */
-function rControl(r,k,{wide=false}={}){
-  const T=today(),future=pStart(r,k)>T,past=pEnd(r,k)<T,ratio=rRatio(r,k),l=rLog(r,k);
+function rControl(r,k,{wide=false,occ=false}={}){
+  const T=today(),ps=occ?k:pStart(r,k),pe=occ?k:pEnd(r,k),future=ps>T,past=pe<T,ratio=rOcc(r,k),l=rLog(r,k);
   const box=el('div',{class:'rc '+(wide?'wide ':'')+'lv-'+(ratio>=1?'full':ratio>0?'part':'none')+(future?' fut':'')});
   if(r.mode==='없음'){
     const st=l&&l.done?'done':l&&l.min?'min':'';
@@ -1708,7 +1742,7 @@ function rControl(r,k,{wide=false}={}){
 function gradeBadge(r){return el('span',{class:'rg rg-'+r.grade,title:`${r.grade}등급 (${R_GDESC[r.grade]}) · 가중치 ${R_W[r.grade]}`},r.grade);}
 function rNameCell(r,list){
   const s=rStreak(r);
-  const sub=[r.cycle+(r.cycle==='일일'&&r.days&&r.days.length&&r.days.length<7?`(${ALLDAYS.filter(x=>r.days.includes(x)).map(x=>WD[x]).join('')})`:''),
+  const sub=[r.cycle+(schedText(r)?`(${schedText(r)})`:''),
     r.mode==='없음'?'체크':`${r.mode} ${r.target}${unit(r)}`,r.grade==='A'&&r.mode!=='없음'&&Number(r.minVal)>0?`최소 ${r.minVal}${unit(r)}`:''].filter(Boolean).join(' · ');
   return el('td',{class:'rname',onclick:()=>openRoutine(r.id),title:'클릭하면 루틴 수정'},
     el('div',{class:'rn1'},gradeBadge(r),el('b',{},r.title),r.state==='중지'?el('span',{class:'hint'},'(중지)'):null,
@@ -1749,11 +1783,13 @@ function renderRoutine(){
 function routineWeek(list){
   const mon=mondayOf(rWeek),T=today(),days=[...Array(7)].map((_,i)=>addDays(mon,i)),sun=days[6];
   const daily=list.filter(r=>r.cycle==='일일'&&rKeys(r,mon,sun).length),weekly=list.filter(r=>r.cycle==='주간'&&rActive(r,mon)),mk=(T>=mon&&T<=sun?T:addDays(mon,3)).slice(0,7);
-  const monthly=list.filter(r=>r.cycle==='월간'&&rActive(r,mk));
+  const monthly=list.filter(r=>r.cycle==='월간'&&(isSched(r)?rSchedIn(r,mon,sun).length>0:rActive(r,mk)));
+  const onDay=(r,d)=>isSched(r)?rSchedIn(r,d,d).length>0:(r.cycle==='일일'&&rActive(r,d)&&d>=r.startDate);
   const wrap=el('div',{});
-  const dayVals=days.map(d=>d>T?null:wAvg(daily.filter(r=>rActive(r,d)&&d>=r.startDate).map(r=>[r,rRatio(r,d)])));
-  const weekVal=wAvg([...daily.map(r=>[r,rAvg(r,mon,sun)]),...weekly.map(r=>[r,mon>T?null:rRatio(r,mon)])]);
-  const byG=g=>wAvg([...daily.filter(r=>r.grade===g).map(r=>[r,rAvg(r,mon,sun)]),...weekly.filter(r=>r.grade===g).map(r=>[r,mon>T?null:rRatio(r,mon)])]);
+  const dayVals=days.map(d=>d>T?null:wAvg([...daily,...weekly,...monthly].filter(r=>onDay(r,d)).map(r=>[r,rOcc(r,d)])));
+  const wItems=()=>[...daily.map(r=>[r,rAvg(r,mon,sun)]),...weekly.map(r=>[r,mon>T?null:rRatio(r,mon)]),...monthly.filter(isSched).map(r=>[r,rOccAvg(r,mon,sun)])];
+  const weekVal=wAvg(wItems());
+  const byG=g=>wAvg(wItems().filter(([r])=>r.grade===g));
   wrap.append(el('div',{class:'weekbar rtweek'},
     el('button',{class:'btn sm',onclick:()=>{rWeek=addDays(rWeek,-7);renderRoutine();}},'◀ 이전 주'),
     el('button',{class:'btn sm',onclick:()=>{rWeek=today();renderRoutine();}},'이번 주'),
@@ -1766,9 +1802,10 @@ function routineWeek(list){
   const tb=el('tbody',{});
   const sec=(label,n)=>tb.append(el('tr',{class:'rsec'},el('td',{colspan:8},label,el('span',{class:'hint'},` ${n}개`))));
   if(daily.length){sec('일일 루틴',daily.length);daily.forEach(r=>tb.append(el('tr',{},rNameCell(r,daily),...days.map(d=>el('td',{class:(d===T?'today ':'')+(rActive(r,d)&&d>=r.startDate?'':'na')},rActive(r,d)&&d>=r.startDate?rControl(r,d):el('span',{class:'dot'},'·'))))));}
-  if(weekly.length){sec('주간 루틴',weekly.length);weekly.forEach(r=>tb.append(el('tr',{},rNameCell(r,weekly),el('td',{colspan:7},rControl(r,mon,{wide:true})))));}
-  if(monthly.length){sec(`월간 루틴 (${Number(mk.slice(5))}월)`,monthly.length);monthly.forEach(r=>tb.append(el('tr',{},rNameCell(r,monthly),el('td',{colspan:7},rControl(r,mk,{wide:true}),el('span',{class:'hint',style:'margin-left:8px'},`${Number(mk.slice(5))}월 한 달 기간`)))));}
-  tb.append(el('tr',{class:'rchart'},el('td',{class:'rname'},el('b',{},'일별 달성도'),el('div',{class:'hint'},'일일 루틴 · 등급 가중 평균')),...days.map((d,i)=>el('td',{class:d===T?'today':''},barCol(dayVals[i])))));
+  const dayCells=r=>days.map(d=>{const on=onDay(r,d);return el('td',{class:(d===T?'today ':'')+(on?'':'na')},on?rControl(r,d,{occ:true}):el('span',{class:'dot'},'·'));});
+  if(weekly.length){sec('주간 루틴',weekly.length);weekly.forEach(r=>tb.append(el('tr',{},rNameCell(r,weekly),...(isSched(r)?dayCells(r):[el('td',{colspan:7},rControl(r,mon,{wide:true}))]))));}
+  if(monthly.length){sec(`월간 루틴 (${Number(mk.slice(5))}월)`,monthly.length);monthly.forEach(r=>tb.append(el('tr',{},rNameCell(r,monthly),...(isSched(r)?dayCells(r):[el('td',{colspan:7},rControl(r,mk,{wide:true}),el('span',{class:'hint',style:'margin-left:8px'},`${Number(mk.slice(5))}월 한 달 기간`))]))));}
+  tb.append(el('tr',{class:'rchart'},el('td',{class:'rname'},el('b',{},'일별 달성도'),el('div',{class:'hint'},'그날 수행할 루틴 · 등급 가중 평균')),...days.map((d,i)=>el('td',{class:d===T?'today':''},barCol(dayVals[i])))));
   tbl.append(tb);wrap.append(tbl);
   if(!daily.length&&!weekly.length&&!monthly.length)wrap.append(el('div',{class:'hint',style:'padding:20px;text-align:center'},'이 주에 해당하는 루틴이 없습니다.'));
   return wrap;
@@ -1777,9 +1814,9 @@ function monthWeeks(ym){const first=ym+'-01',x=pd(first),last=fmt(new Date(x.get
 function routineMonth(list){
   const ym=rMonth,T=today(),weeks=monthWeeks(ym),first=ym+'-01',last=weeks[weeks.length-1].e;
   const inMonth=list.filter(r=>rKeys(r,first,last).length);
-  const cellVal=(r,w)=>{if(w.s>T)return null;if(r.cycle==='일일')return rAvg(r,w.s,w.e);if(r.cycle==='주간')return rActive(r,w.mon)?rRatio(r,w.mon):null;return null;};
-  const monthVal=r=>{if(first>T)return null;if(r.cycle==='월간')return rActive(r,ym)?rRatio(r,ym):null;if(r.cycle==='일일')return rAvg(r,first,last);const vs=weeks.filter(w=>w.s<=T&&rActive(r,w.mon)).map(w=>rRatio(r,w.mon));return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null;};
-  const weekVals=weeks.map(w=>w.s>T?null:wAvg(inMonth.filter(r=>r.cycle!=='월간').map(r=>[r,cellVal(r,w)])));
+  const cellVal=(r,w)=>{if(w.s>T)return null;if(r.cycle==='일일')return rAvg(r,w.s,w.e);if(r.cycle==='주간')return rActive(r,w.mon)?rRatio(r,w.mon):null;if(isSched(r))return rOccAvg(r,w.s,w.e);return null;};
+  const monthVal=r=>{if(first>T)return null;if(r.cycle==='월간')return rActive(r,ym)?rRatio(r,ym):null;if(r.cycle==='일일')return rAvg(r,first,last);const vs=weeks.filter(w=>w.s<=T&&rActive(r,w.mon)).map(w=>rRatio(r,w.mon)).filter(v=>v!=null);return vs.length?vs.reduce((a,b)=>a+b,0)/vs.length:null;};
+  const weekVals=weeks.map(w=>w.s>T?null:wAvg(inMonth.filter(r=>r.cycle!=='월간'||isSched(r)).map(r=>[r,cellVal(r,w)])));
   const total=wAvg(inMonth.map(r=>[r,monthVal(r)]));
   const [y,m]=ym.split('-').map(Number);
   const wrap=el('div',{});
@@ -1788,14 +1825,14 @@ function routineMonth(list){
     el('button',{class:'btn sm',onclick:()=>shift(-1)},'◀ 이전 달'),el('button',{class:'btn sm',onclick:()=>{rMonth=today().slice(0,7);renderRoutine();}},'이번 달'),el('button',{class:'btn sm',onclick:()=>shift(1)},'다음 달 ▶'),
     el('span',{class:'lbl'},`${y}년 ${m}월`),
     el('div',{class:'rsum'},el('span',{class:'big lv-'+lvl(total)},'월간 달성도 '+pct(total)),...R_GRADES.map(g=>el('span',{class:'gsum'},el('span',{class:'rg rg-'+g},g),' '+pct(wAvg(inMonth.filter(r=>r.grade===g).map(r=>[r,monthVal(r)]))))))));
-  wrap.append(el('div',{class:'card mchart'},el('h3',{},'주차별 달성도',el('span',{class:'hint',style:'font-weight:400;margin-left:8px'},'일일·주간 루틴 · 등급 가중 평균')),
+  wrap.append(el('div',{class:'card mchart'},el('h3',{},'주차별 달성도',el('span',{class:'hint',style:'font-weight:400;margin-left:8px'},'등급 가중 평균 (기간 전체형 월간 루틴 제외)')),
     el('div',{class:'bars'},...weeks.map((w,i)=>barCol(weekVals[i],`${i+1}주차`,`${mmdd(w.s)}~${mmdd(w.e)}`)))));
   const tbl=el('table',{class:'rt mt'});
   tbl.append(el('thead',{},el('tr',{},el('th',{style:'width:230px'},'루틴'),...weeks.map((w,i)=>el('th',{},`${i+1}주차`,el('span',{class:'d'},`${mmdd(w.s)}~${mmdd(w.e)}`))),el('th',{},'월 달성도'),el('th',{},'연속 (현재/최고)'))));
   const tb=el('tbody',{});
   inMonth.forEach(r=>{const s=rStreak(r);const mv=monthVal(r);
     tb.append(el('tr',{},rNameCell(r),
-      ...(r.cycle==='월간'?[el('td',{colspan:weeks.length,class:'mcell'},rControl(r,ym,{wide:true}))]:weeks.map(w=>{const v=cellVal(r,w);return el('td',{class:'mcell'},v==null?el('span',{class:'dot'},'·'):el('div',{class:'mpct lv-'+lvl(v)},el('div',{class:'rbar'},el('i',{style:`width:${v*100}%`})),pct(v)));})),
+      ...(r.cycle==='월간'&&!isSched(r)?[el('td',{colspan:weeks.length,class:'mcell'},rControl(r,ym,{wide:true}))]:weeks.map(w=>{const v=cellVal(r,w);return el('td',{class:'mcell'},v==null?el('span',{class:'dot'},'·'):el('div',{class:'mpct lv-'+lvl(v)},el('div',{class:'rbar'},el('i',{style:`width:${v*100}%`})),pct(v)));})),
       el('td',{class:'mcell'},el('b',{class:'lv-'+lvl(mv)},pct(mv))),el('td',{class:'mcell'},`${s.cur} / ${s.best}${unitP(r)}`)));});
   if(!inMonth.length)tb.append(el('tr',{},el('td',{colspan:weeks.length+3,class:'hint',style:'text-align:center;padding:20px'},'이 달에 해당하는 루틴이 없습니다.')));
   tbl.append(tb);wrap.append(tbl);
@@ -1803,17 +1840,30 @@ function routineMonth(list){
 }
 const unitP=r=>r.cycle==='일일'?'일':r.cycle==='주간'?'주':'개월';
 function openRoutine(id){const r=routines.find(x=>x.id===id);if(r)openModal(r);}
-function weekdaysField(d,k){
-  d[k]=Array.isArray(d[k])&&d[k].length?d[k]:[...ALLDAYS];
+function weekdaysField(d,k,allowEmpty){
+  d[k]=Array.isArray(d[k])&&(d[k].length||allowEmpty)?d[k]:allowEmpty?[]:[...ALLDAYS];
   const set=a=>{d[k]=a;renderModal();};
   return el('div',{class:'row-inline',style:'margin:0'},
-    el('div',{class:'seg'},...ALLDAYS.map(x=>el('button',{type:'button',class:d[k].includes(x)?'on':'',onclick:()=>{const a=d[k].includes(x)?d[k].filter(y=>y!==x):[...d[k],x];if(a.length)set(a);}},WD[x]))),
-    el('button',{type:'button',class:'btn sm',onclick:()=>set([...ALLDAYS])},'매일'),el('button',{type:'button',class:'btn sm',onclick:()=>set([1,2,3,4,5])},'평일'),el('button',{type:'button',class:'btn sm',onclick:()=>set([6,0])},'주말'));
+    el('div',{class:'seg'},...ALLDAYS.map(x=>el('button',{type:'button',class:d[k].includes(x)?'on':'',onclick:()=>{const a=d[k].includes(x)?d[k].filter(y=>y!==x):[...d[k],x];if(a.length||allowEmpty)set(a);}},WD[x]))),
+    allowEmpty?null:el('button',{type:'button',class:'btn sm',onclick:()=>set([...ALLDAYS])},'매일'),el('button',{type:'button',class:'btn sm',onclick:()=>set([1,2,3,4,5])},'평일'),el('button',{type:'button',class:'btn sm',onclick:()=>set([6,0])},'주말'),
+    allowEmpty?el('button',{type:'button',class:'btn sm',onclick:()=>set([])},'지정 안 함'):null);
+}
+function mslotsField(d,k){
+  d[k]=Array.isArray(d[k])?d[k]:[];
+  const has=(n,w)=>d[k].some(x=>x.n===n&&x.w===w);
+  const tog=(n,w)=>{d[k]=has(n,w)?d[k].filter(x=>!(x.n===n&&x.w===w)):[...d[k],{n,w}];renderModal();};
+  const rows=[1,2,3,4,5,-1];
+  return el('div',{},
+    el('table',{class:'mslot'},el('tr',{},el('th',{},''),...ALLDAYS.map(w=>el('th',{},WD[w]))),
+      ...rows.map(n=>el('tr',{},el('th',{},NTH(n)),...ALLDAYS.map(w=>el('td',{},el('button',{type:'button',class:has(n,w)?'on':'',onclick:()=>tog(n,w)},has(n,w)?'✓':'')))))),
+    el('div',{class:'row-inline'},el('span',{class:'hint'},d[k].length?'선택: '+schedText({cycle:'월간',mslots:d[k]}):'선택 안 함 → 한 달 전체 기간으로 목표를 채웁니다'),d[k].length?el('button',{type:'button',class:'btn sm',onclick:()=>{d[k]=[];renderModal();}},'전체 해제'):null));
 }
 function finalizeRoutine(d){
   if(d.mode==='없음'){d.target='';d.minVal='';}
   else{d.target=Number(d.target)||0;d.minVal=d.grade==='A'?(Number(d.minVal)||''):'';}
   if(d.cycle!=='일일')d.days=[...ALLDAYS];
+  if(d.cycle!=='주간')d.wdays=[];
+  if(d.cycle!=='월간')d.mslots=[];
   if(d.state==='중지'){if(!isValidDate(d.pausedAt))d.pausedAt=today();}else delete d.pausedAt;
   d.updated=today();d.logs=d.logs||{};return d;
 }
