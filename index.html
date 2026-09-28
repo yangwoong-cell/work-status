@@ -2021,7 +2021,7 @@ function ritemsField(d){
   return box;
 }
 function finalizeRoutine(d){
-  d.alarmLead=Number(d.alarmLead)||0;
+  d.alarmLeads=rLeads(d);delete d.alarmLead;
   d.items=Array.isArray(d.items)?d.items.filter(x=>x&&String(x.name||'').trim()).map(x=>({id:x.id||uid(),name:String(x.name).trim()})):[];
   if(d.mode!=='없음')d.items=[];
   if(d.mode==='없음'){d.target='';d.minVal='';}
@@ -2032,13 +2032,17 @@ function finalizeRoutine(d){
   if(d.state==='중지'){if(!isValidDate(d.pausedAt))d.pausedAt=today();}else delete d.pausedAt;
   d.updated=today();d.logs=d.logs||{};return d;
 }
+const LEAD_OPTS=[[0,'정각'],[5,'5분 전'],[10,'10분 전'],[30,'30분 전'],[60,'1시간 전'],[1440,'1일 전'],[2880,'2일 전'],[4320,'3일 전'],[10080,'7일 전']];
+function rLeads(r){let a=Array.isArray(r.alarmLeads)?r.alarmLeads.map(Number).filter(x=>x>=0&&isFinite(x)):(r.alarmLead!=null&&r.alarmLead!==''?[Number(r.alarmLead)||0]:[]);a=[...new Set(a)].sort((x,y)=>y-x);return a.length?a:[0];}
+function leadText(v){if(!v)return '정각';if(v%1440===0)return `${v/1440}일 전`;if(v%60===0)return `${v/60}시간 전`;return `${v}분 전`;}
+function leadTrigger(v){if(!v)return 'PT0M';if(v%1440===0)return `-P${v/1440}D`;if(v%60===0)return `-PT${v/60}H`;return `-PT${v}M`;}
 function exportRoutineIcs(d){
   if(!String(d.title||'').trim()){const w=$('.fld[data-k="title"]');if(w)w.classList.add('err');toast('루틴명을 먼저 입력하세요');return;}
   const c=clone(d);if(!saveRoutineModal(c))return;
   mNew=false;mDraft=clone(routines.find(x=>x.id===c.id)||c);renderModal();
   const r=routines.find(x=>x.id===c.id)||c;
   if(r.state==='중지'){toast('중지된 루틴은 캘린더에 추가할 수 없습니다');return;}
-  const {text,count}=buildIcs([r],Number(r.alarmLead)||0);
+  const {text,count}=buildIcs([r],rLeads(r));
   download(`루틴알람_${String(r.title).replace(/[\\/:*?"<>|\s]+/g,'_')}.ics`,new Blob([text],{type:'text/calendar;charset=utf-8'}));
   toast(`저장했습니다 · 캘린더 파일을 받았습니다 (일정 ${count}개)`);
 }
@@ -2050,13 +2054,20 @@ function ralarmsField(d){
   box.append(el('div',{class:'row-inline',style:'margin:0'},
     el('button',{type:'button',class:'btn sm',onclick:()=>{d.alarms.push(d.alarms.length?addHour(d.alarms[d.alarms.length-1],1):'08:00');renderModal();}},'＋ 알람 추가')));
   if(d.alarms.length){
-    const lead=Number(d.alarmLead)||0;
+    const leads=rLeads(d);d.alarmLeads=leads;
+    const tog=v=>{let a=rLeads(d);a=a.includes(v)?a.filter(x=>x!==v):[...a,v];d.alarmLeads=a.length?a.sort((x,y)=>y-x):[0];renderModal();};
+    let cust='';
     const prev=(()=>{try{const c=finalizeRoutine(clone(d));return icsRule(c).txt+` · ${icsFirstDate(c)}부터`;}catch(e){return '';}})();
     box.append(el('div',{class:'icsrow'},
       el('div',{class:'row-inline',style:'margin:0'},el('b',{style:'font-size:12.5px'},'📅 캘린더 알림'),el('span',{class:'hint'},prev)),
-      el('div',{class:'row-inline',style:'margin:6px 0 0'},el('span',{class:'hint'},'알림 시점'),
-        el('div',{class:'seg'},...[[0,'정각'],[5,'5분 전'],[10,'10분 전'],[30,'30분 전']].map(([v,l])=>el('button',{type:'button',class:lead===v?'on':'',onclick:()=>{d.alarmLead=v;renderModal();}},l))),
+      el('div',{class:'row-inline',style:'margin:6px 0 0;align-items:flex-start'},el('span',{class:'hint',style:'padding-top:6px'},'알림 시점\n(여러 개 선택)'),
+        el('div',{class:'seg'},...LEAD_OPTS.map(([v,l])=>el('button',{type:'button',class:leads.includes(v)?'on':'',onclick:()=>tog(v)},l)),
+          ...leads.filter(v=>!LEAD_OPTS.some(o=>o[0]===v)).map(v=>el('button',{type:'button',class:'on',title:'클릭하면 해제',onclick:()=>tog(v)},leadText(v)+' ✕')))),
+      el('div',{class:'row-inline',style:'margin:6px 0 0'},el('span',{class:'hint'},'직접 입력'),
+        el('input',{type:'number',min:1,max:60,placeholder:'x',style:'width:70px',oninput:e=>{cust=e.target.value;}}),el('span',{class:'hint'},'일 전'),
+        el('button',{type:'button',class:'btn sm',onclick:()=>{const n=parseInt(cust,10);if(!(n>=1&&n<=60)){toast('1~60 사이 숫자를 입력하세요');return;}const v=n*1440;if(!rLeads(d).includes(v))tog(v);}},'추가'),
         el('div',{class:'spacer'}),
+        el('span',{class:'hint'},'선택: '+leads.map(leadText).join(', ')),
         el('button',{type:'button',class:'btn primary sm',onclick:()=>exportRoutineIcs(d)},'📅 저장하고 캘린더에 추가')),
       el('div',{class:'hint',style:'margin-top:6px'},'루틴을 저장한 뒤 이 루틴의 알람만 담긴 캘린더 파일(.ics)을 받습니다. 아이폰 사파리에서는 바로 "캘린더에 추가" 화면이 뜹니다 → [모두 추가]\n알람 시각·요일을 바꾸면 캘린더의 예전 "[루틴] '+(d.title||'루틴명')+'" 일정을 지우고 다시 추가하세요.')));
   }
@@ -2189,7 +2200,7 @@ function icsFirstDate(r){
 }
 function icsEsc(t){return String(t||'').replace(/\\/g,'\\\\').replace(/;/g,'\;').replace(/,/g,'\\,').replace(/\r?\n/g,'\\n');}
 function icsFold(line){const enc=new TextEncoder();if(enc.encode(line).length<=74)return line;const out=[];let cur='',len=0;for(const ch of line){const l=enc.encode(ch).length;if(len+l>(out.length?73:74)){out.push(cur);cur='';len=0;}cur+=ch;len+=l;}out.push(cur);return out.join('\r\n ');}
-function buildIcs(list,lead){
+function buildIcs(list,leadsArg){
   const now=new Date(),stamp=now.toISOString().replace(/[-:]/g,'').replace(/\.\d+Z$/,'Z');
   const L=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//work-status//routine-alarm//KO','CALSCALE:GREGORIAN','METHOD:PUBLISH','X-WR-CALNAME:루틴 알람','X-WR-TIMEZONE:Asia/Seoul',
     'BEGIN:VTIMEZONE','TZID:Asia/Seoul','BEGIN:STANDARD','DTSTART:19700101T000000','TZOFFSETFROM:+0900','TZOFFSETTO:+0900','TZNAME:KST','END:STANDARD','END:VTIMEZONE'];
@@ -2202,7 +2213,7 @@ function buildIcs(list,lead){
       const [h,m]=hm.split(':');n++;
       L.push('BEGIN:VEVENT',`UID:routine-${r.id}-${h}${m}@work-status`,`DTSTAMP:${stamp}`,`DTSTART;TZID=Asia/Seoul:${d0}T${h}${m}00`,`DURATION:PT${r.mode==='타이머'&&Number(r.target)>0?Math.min(240,Number(r.target)):10}M`,
         `RRULE:${rl.rule}`,`SUMMARY:${icsEsc('[루틴] '+r.title)}`,`DESCRIPTION:${icsEsc(desc)}`,'TRANSP:TRANSPARENT',
-        'BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc('[루틴] '+r.title)}`,`TRIGGER:${lead>0?'-PT'+lead+'M':'PT0M'}`,'END:VALARM','END:VEVENT');
+        ...(Array.isArray(leadsArg)?leadsArg:rLeads({alarmLeads:[Number(leadsArg)||0]})).flatMap(v=>['BEGIN:VALARM','ACTION:DISPLAY',`DESCRIPTION:${icsEsc('[루틴] '+r.title+(v?' ('+leadText(v)+')':''))}`,`TRIGGER:${leadTrigger(v)}`,'END:VALARM']),'END:VEVENT');
     }
   }
   L.push('END:VCALENDAR');
