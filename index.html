@@ -423,7 +423,10 @@ table.dft th{white-space:nowrap}
 .icadd{display:inline-flex;gap:4px;align-items:center;margin-left:6px}
 .igrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
 .icard{background:var(--panel);border:1px solid var(--line);border-left:4px solid #eab308;border-radius:10px;padding:8px 12px;display:flex;flex-direction:column;gap:6px}
-.icard.pin{border-left-color:#f472b6;background:#1f1620}
+.icard.pin{background:#1f1a26;box-shadow:inset 0 0 0 1px #5b3a66}
+.idot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.igroup{grid-column:1/-1;font-weight:800;font-size:13px;margin-top:6px;padding:4px 2px;border-bottom:1px solid var(--line2)}
+.igroup:first-child{margin-top:0}
 .icard.done{opacity:.55}
 .icard.done .itext{text-decoration:line-through}
 .ihead{display:flex;align-items:center;gap:4px}
@@ -2543,7 +2546,15 @@ function loadIdeas(){try{ideas=JSON.parse(localStorage.getItem(IKEY)||'[]')||[];
 function saveIdeas(){try{localStorage.setItem(IKEY,JSON.stringify(ideas));}catch(e){}if(typeof cloudPushIdeas==='function')cloudPushIdeas();}
 function ideaCats(){if(!Array.isArray(settings.ideaCats))settings.ideaCats=[...IDEA_DEF_CATS];return settings.ideaCats;}
 const nowStamp=()=>{const n=new Date();return `${today()} ${pad(n.getHours())}:${pad(n.getMinutes())}`;};
-let iCat='',iQ='',iNewCat=null,iEdit=null;
+let iCat='',iQ='',iNewCat=null,iEdit=null,iSort=(()=>{try{return localStorage.getItem('wm_idea_sort')||'new';}catch(e){return 'new';}})();
+const IDEA_COLORS=['#eab308','#3b82f6','#22c55e','#ef4444','#a855f7','#14b8a6','#f97316','#ec4899','#a3e635','#22d3ee','#6366f1','#fb7185','#a16207','#7dd3fc','#d946ef','#cbd5e1','#15803d','#b91c1c','#1d4ed8','#fdba74'];
+function ideaColor(c){
+  if(!c||!ideaCats().includes(c))return '#64748b';
+  settings.ideaCatColors=settings.ideaCatColors&&typeof settings.ideaCatColors==='object'?settings.ideaCatColors:{};
+  const map=settings.ideaCatColors;
+  if(map[c]==null){const used=new Set(ideaCats().filter(x=>x!==c&&map[x]!=null).map(x=>map[x]));let i=0;while(used.has(i)&&i<IDEA_COLORS.length)i++;map[c]=i%IDEA_COLORS.length;setTimeout(()=>saveSettings(),0);}
+  return IDEA_COLORS[map[c]%IDEA_COLORS.length];
+}
 function renderIdeas(){
   const root=$('#idRoot');if(!root||view!=='ideas')return;
   root.innerHTML='';const cats=ideaCats();
@@ -2557,35 +2568,44 @@ function renderIdeas(){
   // 구분 관리 + 필터
   const cnt=c=>ideas.filter(x=>c==null?true:c===''?!x.cat||!cats.includes(x.cat):x.cat===c).length;
   const newIn=el('input',{type:'text',placeholder:'새 구분 이름',style:'width:140px',onkeydown:e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();addCat();}}});
-  const addCat=()=>{const v=newIn.value.trim();if(!v)return;if(cats.includes(v)){toast('이미 있는 구분입니다');return;}cats.push(v);saveSettings();iCat=v;renderIdeas();toast(`'${v}' 구분을 추가했습니다`);};
+  const addCat=()=>{const v=newIn.value.trim();if(!v)return;if(cats.includes(v)){toast('이미 있는 구분입니다');return;}cats.push(v);ideaColor(v);saveSettings();iCat=v;renderIdeas();toast(`'${v}' 구분을 추가했습니다`);};
   const delCat=c=>{const n=ideas.filter(x=>x.cat===c).length;if(!confirm(`'${c}' 구분을 삭제할까요?`+(n?`\n이 구분의 아이디어 ${n}개는 지워지지 않고 '구분 없음'으로 옮겨집니다.`:'')))return;
-    settings.ideaCats=cats.filter(x=>x!==c);ideas.forEach(x=>{if(x.cat===c){x.cat='';x.updated=nowStamp();}});saveSettings();saveIdeas();if(iCat===c)iCat='';renderIdeas();toast(`'${c}' 구분을 삭제했습니다`);};
+    settings.ideaCats=cats.filter(x=>x!==c);if(settings.ideaCatColors)delete settings.ideaCatColors[c];ideas.forEach(x=>{if(x.cat===c){x.cat='';x.updated=nowStamp();}});saveSettings();saveIdeas();if(iCat===c)iCat='';renderIdeas();toast(`'${c}' 구분을 삭제했습니다`);};
   const moveCat=(c,dir)=>{const i=cats.indexOf(c),j=i+dir;if(j<0||j>=cats.length)return;[cats[i],cats[j]]=[cats[j],cats[i]];saveSettings();renderIdeas();};
   const q=el('input',{type:'text',placeholder:'아이디어 검색',value:iQ,oninput:e=>{iQ=e.target.value;fillIdeas();}});
   root.append(el('div',{class:'tabs icats'},
     el('button',{class:iCat===''?'on':'',onclick:()=>{iCat='';renderIdeas();}},`전체 ${ideas.length}`),
     ...cats.map((c,i)=>el('span',{class:'icat'+(iCat===c?' on':'')},
-      el('button',{class:'icn',onclick:()=>{iCat=c;renderIdeas();}},`${c} ${cnt(c)}`),
+      el('button',{class:'icn',onclick:()=>{iCat=c;renderIdeas();}},el('span',{class:'idot',style:`background:${ideaColor(c)}`}),`${c} ${cnt(c)}`),
       iCat===c?el('button',{class:'icx',title:'왼쪽으로',disabled:i===0,onclick:()=>moveCat(c,-1)},'◀'):null,
       iCat===c?el('button',{class:'icx',title:'오른쪽으로',disabled:i===cats.length-1,onclick:()=>moveCat(c,1)},'▶'):null,
       el('button',{class:'icx',title:'구분 삭제',onclick:()=>delCat(c)},'✕'))),
     ideas.some(x=>!x.cat||!cats.includes(x.cat))?el('button',{class:iCat==='__none'?'on':'',onclick:()=>{iCat='__none';renderIdeas();}},`구분 없음 ${ideas.filter(x=>!x.cat||!cats.includes(x.cat)).length}`):null,
     el('span',{class:'icadd'},newIn,el('button',{class:'btn sm',onclick:addCat},'＋ 구분 추가')),
     q));
+  const setSort=v=>{iSort=v;try{localStorage.setItem('wm_idea_sort',v);}catch(e){}renderIdeas();};
+  root.append(el('div',{class:'row-inline isort',style:'margin:0 0 10px'},el('span',{class:'hint'},'정렬'),
+    el('div',{class:'seg'},...[['new','📅 최신순'],['old','📅 오래된순'],['cat','🏷 구분별']].map(([v,l])=>el('button',{type:'button',class:iSort===v?'on':'',onclick:()=>setSort(v)},l))),
+    el('span',{class:'hint'},'★ 고정한 아이디어는 '+(iSort==='cat'?'각 구분 안에서':'')+' 맨 앞에 옵니다')));
   root.append(el('div',{id:'idList',class:'igrid'}));
   fillIdeas();
 }
 function fillIdeas(){
   const box=$('#idList');if(!box)return;box.innerHTML='';const cats=ideaCats();const ql=iQ.trim().toLowerCase();
   const rows=ideas.filter(x=>(iCat===''||(iCat==='__none'?(!x.cat||!cats.includes(x.cat)):x.cat===iCat))&&(!ql||(x.text+' '+(x.cat||'')).toLowerCase().includes(ql)))
-    .sort((a,b)=>(b.pin?1:0)-(a.pin?1:0)||String(b.created).localeCompare(String(a.created)));
+    .sort((a,b)=>{const ci=x=>{const i=cats.indexOf(x.cat);return i<0?999:i;};
+      if(iSort==='cat')return ci(a)-ci(b)||(b.pin?1:0)-(a.pin?1:0)||String(b.created).localeCompare(String(a.created));
+      return (b.pin?1:0)-(a.pin?1:0)||(iSort==='old'?String(a.created).localeCompare(String(b.created)):String(b.created).localeCompare(String(a.created)));});
   if(!rows.length){box.append(el('div',{class:'hint',style:'padding:24px;text-align:center;grid-column:1/-1'},ideas.length?'조건에 맞는 아이디어가 없습니다.':'아직 아이디어가 없습니다. 위 입력칸에 바로 적어보세요.'));return;}
+  let lastG=null;
   rows.forEach(x=>{
     const editing=iEdit===x.id;
-    const card=el('div',{class:'icard'+(x.pin?' pin':'')+(x.done?' done':'')});
+    if(iSort==='cat'){const g=cats.includes(x.cat)?x.cat:'';if(g!==lastG){lastG=g;box.append(el('div',{class:'igroup'},el('span',{class:'idot',style:`background:${ideaColor(g)}`}),g||'구분 없음',el('span',{class:'hint'},` ${rows.filter(y=>(cats.includes(y.cat)?y.cat:'')===g).length}개`)));}}
+    const col=ideaColor(x.cat);
+    const card=el('div',{class:'icard'+(x.pin?' pin':'')+(x.done?' done':''),style:`border-left-color:${col}`});
     const head=el('div',{class:'ihead'},
       el('button',{class:'ipin'+(x.pin?' on':''),title:x.pin?'고정 해제':'맨 위에 고정',onclick:()=>{x.pin=!x.pin;saveIdeas();fillIdeas();}},x.pin?'★':'☆'),
-      (()=>{const s=el('select',{class:'icsel',title:'구분 변경',onchange:e=>{x.cat=e.target.value;x.updated=nowStamp();saveIdeas();renderIdeas();}},el('option',{value:''},'(구분 없음)'),...cats.map(c=>el('option',{value:c},c)));s.value=cats.includes(x.cat)?x.cat:'';return s;})(),
+      (()=>{const s=el('select',{class:'icsel',style:`border-color:${ideaColor(x.cat)}`,title:'구분 변경',onchange:e=>{x.cat=e.target.value;x.updated=nowStamp();saveIdeas();renderIdeas();}},el('option',{value:''},'(구분 없음)'),...cats.map(c=>el('option',{value:c},c)));s.value=cats.includes(x.cat)?x.cat:'';return s;})(),
       el('div',{class:'spacer'}),
       el('button',{class:'icx',title:x.done?'진행중으로':'완료(실행함)로 표시',onclick:()=>{x.done=!x.done;x.updated=nowStamp();saveIdeas();fillIdeas();}},x.done?'↺':'✓'),
       el('button',{class:'icx',title:'수정',onclick:()=>{iEdit=editing?null:x.id;fillIdeas();}},'✎'),
@@ -2615,7 +2635,7 @@ const cloud={iSynced:new Map(),iReady:false,unsubI:null,vSynced:new Map(),vReady
 function stableStr(v){if(Array.isArray(v))return '['+v.map(stableStr).join(',')+']';if(v&&typeof v==='object')return '{'+Object.keys(v).sort().map(k=>JSON.stringify(k)+':'+stableStr(v[k])).join(',')+'}';return JSON.stringify(v===undefined?null:v);}
 const cleanObj=o=>JSON.parse(JSON.stringify(o));
 const userRef=()=>cloud.db.collection('users').doc(cloud.user.uid);
-const cloudSettings=()=>{const o={};['holidayList','leadDefault','model','useAI','diaryPin','ideaCats'].forEach(k=>{if(settings[k]!==undefined)o[k]=settings[k];});return cleanObj(o);};
+const cloudSettings=()=>{const o={};['holidayList','leadDefault','model','useAI','diaryPin','ideaCats','ideaCatColors'].forEach(k=>{if(settings[k]!==undefined)o[k]=settings[k];});return cleanObj(o);};
 function cloudInit(){
   try{
     if(!window.firebase||!firebase.initializeApp)throw new Error('SDK 없음');
