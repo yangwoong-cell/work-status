@@ -647,7 +647,7 @@ const FORMS={
     f('minVal','최소 버전 기준 (A등급 · 선택)','number',0,null,{showIf:d=>d.grade==='A'&&d.mode!=='없음',hint:'바쁜 날 이만큼만 해도 연속기록이 유지됩니다 (예: 목표 30분 / 최소 10분). 체크형 A등급은 체크 버튼을 한 번 더 누르면 "최소"로 기록 (달성도 50%)'}),
     f('alarms','알람','ralarms'),
     f('startDate','시작일','date',1),f('state','상태','seg',0,['진행','중지'],{hint:'중지하면 이후 기간은 집계에서 빠지고 기존 기록은 유지됩니다'}),f('memo','메모','textarea')],
-  periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea'),f('moves','회차 일정 변경','moves',0,null,{showIf:d=>d.moves&&Object.keys(d.moves).length>0}),f('skip','미수행 기록','skips',0,null,{showIf:d=>d.skip&&Object.keys(d.skip).length>0})],
+  periodic:[f('title','업무명','text',1),f('cycle','주기','seg',1,CYCLES),f('rule','반복 규칙','prule',0,null,{showIf:d=>!!d.cycle}),f('baseDate','적용 시작일','date',1,null,{hint:'이 날짜 이후의 반복 일정부터 대시보드에 표시'}),f('memo','메모','textarea'),f('movepick','회차 일정 변경','pmovepick',0,null,{showIf:d=>!!d.cycle&&isValidDate(d.baseDate)}),f('moves','변경된 회차','moves',0,null,{showIf:d=>d.moves&&Object.keys(d.moves).length>0}),f('skip','미수행 기록','skips',0,null,{showIf:d=>d.skip&&Object.keys(d.skip).length>0})],
   oneoff:[f('title','업무명','text',1),f('subcat','구분','select',1,ONEOFF_CATS),f('importance','중요도','seg',1,GRADES,{desc:IMP_DESC,long:IMP_LONG,hint:GRADES.map(g=>`${g}: ${IMP_LONG[g]}`).join('\n')}),f('urgency','긴급도','seg',1,GRADES,{desc:URG_DESC,long:URG_LONG,hint:GRADES.map(g=>`${g}: ${URG_LONG[g]}`).join('\n')}),
     f('receivedDate','접수일','date',1),f('requestDate','완료요청일','date',1),f('dueDate','완료예정일','date',1,null,{hint:'대시보드 표시: 완료예정일 −5 Workday와 접수일 중 늦은 날부터 · 미완료 시 예정일이 지나도 "지연"으로 계속 표시'}),
     f('status','현황','status'),f('requester','요청의뢰자','text'),f('collaborator','협조자','text'),f('memo','메모','textarea'),f('actions','세부 Action Item','actions')],
@@ -768,7 +768,7 @@ function validate(d){
   return miss;
 }
 function finalize(d){
-  if(d.type==='periodic'&&d.moves){for(const [k,m] of Object.entries(d.moves))if(!m||!isValidDate(m.date)||m.date===k)delete d.moves[k];}
+  if(d.type==='periodic'&&d.moves){const w=isWindowRule(ruleOf(d));for(const [k,m] of Object.entries(d.moves))if(!m||!isValidDate(m.date)||(!w&&m.date===k))delete d.moves[k];}
   const so=statusOpts(d);
   if(so&&!d.status){d.status=so[0];d.history=[{s:so[0],d:d.receivedDate||today()}];}
   if(d.type==='periodic'&&['월간','분기','연간','주간'].includes(d.cycle))d.rule=ruleOf(d);
@@ -927,10 +927,14 @@ function itemsOn(d){
         break;}
       case 'periodic':{
         const mv=t.moves||{};
-        for(const [ok,m] of Object.entries(mv))if(m&&m.date===d&&ok!==d)pushPeriodic(out,t,d,ok,m);
+        const winR=isWindowRule(ruleOf(t)),T0=today();
+        for(const [ok,m] of Object.entries(mv)){if(!m||!isValidDate(m.date))continue;
+          if(m.date===d&&(ok!==d||winR))pushPeriodic(out,t,d,ok,m);
+          else if(winR&&m.date<d&&d<=T0&&!(t.done&&t.done[ok])&&!(t.skip&&t.skip[ok]))pushPeriodic(out,t,d,ok,Object.assign({},m,{late:true}));}
         const k=periodicKey(t,d);
         if(k){
-          if(k===d&&mv[k]&&isValidDate(mv[k].date)&&mv[k].date!==d)out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,done:true,flag:'변경',meta:`→ ${mmdd(mv[k].date)}(${WD[dow(mv[k].date)]}) 로 일정 변경`+(mv[k].reason?' · '+mv[k].reason:'')});
+          if(winR&&mv[k]&&isValidDate(mv[k].date)){ /* 기간형 회차를 옮긴 경우 원래 기간에는 표시하지 않음 */ }
+          else if(k===d&&mv[k]&&isValidDate(mv[k].date)&&mv[k].date!==d)out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,done:true,flag:'변경',meta:`→ ${mmdd(mv[k].date)}(${WD[dow(mv[k].date)]}) 로 일정 변경`+(mv[k].reason?' · '+mv[k].reason:'')});
           else pushPeriodic(out,t,d,k,null);
         }
         break;}
@@ -965,10 +969,10 @@ function pushPeriodic(out,t,d,k,moved){
   const win=!moved&&k!==d;const dv=t.done&&t.done[k];const sk=t.skip&&t.skip[k];
   if(dv&&isValidDate(String(dv))&&win&&isWindowRule(ruleOf(t))&&d>dv)return;
   if(sk&&isValidDate(sk.d)&&win&&isWindowRule(ruleOf(t))&&d>sk.d)return;
-  const mvTxt=moved?[`원래 ${mmdd(k)}(${WD[dow(k)]})`,moved.reason||''].filter(Boolean).join(' · '):'';
+  const mvTxt=moved?[`원래 ${pKeyLabel(t,k)}`,moved.reason||'',moved.late?'완료 체크 전까지 표시':''].filter(Boolean).join(' · '):'';
   if(sk&&!dv){out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win,skipped:true,done:true,flag:'미수행',meta:[sk.reason?'사유: '+sk.reason:'사유 미입력 (클릭해서 입력)',mvTxt].filter(Boolean).join(' · ')});return;}
   const rt=['일일','주간'].includes(t.cycle)?'':periodicRuleText(t);
-  out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win,flag:moved?'변경':'',movable:!win,
+  out.push({t,ord:4,time:'',title:t.title,cyc:t.cycle,okey:k,win,flag:moved?'변경':'',movable:true,
     meta:[moved?mvTxt:rt+(win&&!dv?' · 완료 체크 전까지 표시':''),t.memo?String(t.memo).split('\n')[0].slice(0,40):''].filter(Boolean).join(' · '),chk:true,done:!!dv});
 }
 function stalledRows(){
@@ -1004,7 +1008,7 @@ function chipEl(it,d){
   if(fl)top.append(el('span',{class:'flag'+(fl==='취소'||fl==='지연'||fl==='미수행'?' x':''),title:fl==='지연'?`예정일 ${it.badge.text.replace('D+','')}일 경과 · 완료 처리 전까지 매일 표시`:null},fl==='변경'?'일정변경':fl));
   if(it.pri)top.append(el('span',{class:'gr g-'+(it.t.importance==='A'||it.t.urgency==='A'?'a':'n'),title:`중요도 ${it.t.importance||'-'}(${IMP_DESC[it.t.importance]||'-'}) / 긴급도 ${it.t.urgency||'-'}(${URG_DESC[it.t.urgency]||'-'})`},it.pri));
   if(it.badge)top.append(el('span',{class:'dd'+(it.badge.over?' over':'')},it.badge.text));
-  if(it.chk&&it.movable&&!it.done&&!it.skipped)top.append(el('button',{class:'skipbtn mv',title:'이 회차만 일정 변경',onclick:e=>{e.stopPropagation();const k=it.okey||d;openModal(it.t,{focusMove:k});}},'일정변경'));
+  if(it.chk&&it.movable&&!it.done&&!it.skipped)top.append(el('button',{class:'skipbtn mv',title:'이 회차만 일정 변경',onclick:e=>{e.stopPropagation();const k=it.okey||d;openModal(it.t,{focusMove:k,moveDate:it.win?d:null});}},'일정변경'));
   if(it.chk&&!it.done&&!it.skipped)top.append(el('button',{class:'skipbtn',title:'이 회차 미수행 처리 (사유 입력)',onclick:e=>{e.stopPropagation();const k=it.okey||d;it.t.skip=it.t.skip||{};it.t.skip[k]={d,reason:''};save();renderDash();openModal(it.t,{focusSkip:k});}},'미수행'));
   if(it.skipped)top.append(el('button',{class:'skipbtn rs',title:'미수행 취소 (원복)',onclick:e=>{e.stopPropagation();const k=it.okey||d;if(it.t.skip)delete it.t.skip[k];save();renderDash();toast('미수행을 취소했습니다');}},'↺ 원복'));
   c.append(top,el('div',{class:'ct'},it.title||'(제목 없음)'));
@@ -1267,11 +1271,28 @@ function ruleEditor(d,key){
   box.append(el('div',{class:'rprev'},el('b',{},(isM?ruleText('월간',r):(cyc==='주간'?`매주 ${WD[r.wd]}요일`:ruleText(cyc,r)))+' → 다음 일정: '),nx.length?nx.map(fmtK).join(', '):'없음'));
   return box;
 }
+function pKeyLabel(t,k){
+  if(!isValidDate(k))return k;const r=ruleOf(t);
+  if(isWindowRule(r)){if(r.type==='month'){const [y,m]=k.split('-');return `${y}년 ${Number(m)}월 (월 전체)`;}return `${mmdd(k)}~${mmdd(addDays(k,6))} 주 (주 전체)`;}
+  return `${k} (${WD[dow(k)]})`;
+}
+function pmovePick(d){
+  d.moves=d.moves||{};
+  const T=today();
+  const occ=nextOccurrences(x=>periodicKey(d,x),addDays(T,-35),20,500).filter(k=>!d.moves[k]);
+  if(!occ.length)return el('div',{class:'hint'},'변경할 수 있는 회차가 없습니다. 주기·반복 규칙·적용 시작일을 확인하세요.');
+  const cur=occ.find(k=>{const w=isWindowRule(ruleOf(d));return w?(ruleOf(d).type==='month'?k.slice(0,7)>=T.slice(0,7):addDays(k,6)>=T):k>=T;})||occ[occ.length-1];
+  const sel=el('select',{style:'width:auto;min-width:260px'},...occ.map(k=>el('option',{value:k},pKeyLabel(d,k)+(d.done&&d.done[k]?' ✓ 완료':'')+(d.skip&&d.skip[k]?' · 미수행':''))));sel.value=cur;
+  return el('div',{class:'row-inline',style:'margin:0'},el('span',{class:'hint'},'회차 선택'),sel,
+    el('button',{type:'button',class:'btn sm',onclick:()=>{const k=sel.value;d.moves[k]={date:isWindowRule(ruleOf(d))?(k>T?k:T):k,reason:''};renderModal();
+      setTimeout(()=>{const c=$(`[data-move="${k}"]`);if(c){c.scrollIntoView({block:'center'});c.classList.add('flash');const i=c.querySelector('input[type=date]');if(i)i.focus();}},40);}},'이 회차 일정 변경'),
+    el('span',{class:'hint'},'반복 일정은 그대로 두고 고른 회차만 다른 날로 옮깁니다'));
+}
 function movesField(d){
   const box=el('div',{class:'skips'});
   Object.keys(d.moves||{}).sort().reverse().forEach(k=>{const m=d.moves[k];
     box.append(el('div',{class:'skiprow','data-move':k},
-      el('div',{class:'row-inline',style:'margin:0 0 6px'},el('span',{class:'flag'},'일정변경'),el('b',{},`원래 ${k} (${WD[dow(k)]})`),el('span',{},'→'),
+      el('div',{class:'row-inline',style:'margin:0 0 6px'},el('span',{class:'flag'},'일정변경'),el('b',{},`원래 ${pKeyLabel(d,k)}`),el('span',{},'→'),
         dateField(m.date,v=>{m.date=v;}),el('div',{class:'spacer'}),
         el('button',{type:'button',class:'btn sm',title:'원래 일정으로 되돌리기',onclick:()=>{delete d.moves[k];renderModal();}},'↺ 원복')),
       el('input',{type:'text',placeholder:'변경 사유 (예: 설비 가동 일정, 출장, 고객 방문)',value:m.reason||'',oninput:e=>{m.reason=e.target.value;}})));});
@@ -1288,7 +1309,7 @@ function skipsField(d){
   return box;
 }
 function buildField(d,fd){
-  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves','ritems','ralarms'].includes(fd.t);
+  const full=['textarea','status','actions','sessions','prule','skips','weekdays','mslots','causes','dlog','moves','ritems','ralarms','pmovepick'].includes(fd.t);
   const w=el('div',{class:'fld'+(full?' full':''),'data-k':fd.k});
   w.append(el('label',{class:fd.req?'req':''},fd.label));
   const set=v=>{d[fd.k]=v;};let c;
@@ -1305,6 +1326,7 @@ function buildField(d,fd){
     case 'actions':c=actionsField(d);break;
     case 'skips':c=skipsField(d);break;
     case 'moves':c=movesField(d);break;
+    case 'pmovepick':c=pmovePick(d);break;
     case 'weekdays':c=weekdaysField(d,fd.k,fd.allowEmpty);break;
     case 'mslots':c=mslotsField(d,fd.k);break;
     case 'causes':c=causesField(d);break;
@@ -1320,11 +1342,11 @@ function buildField(d,fd){
 
 /* ================= 모달 ================= */
 let mDraft=null,mNew=false,mPreset=null,mSess=null;
-function openModal(task,{isNew=false,focusAction=null,preset=null,sessDate=null,focusSkip=null,focusMove=null}={}){
+function openModal(task,{isNew=false,focusAction=null,preset=null,sessDate=null,focusSkip=null,focusMove=null,moveDate=null}={}){
   mDraft=clone(task);mNew=isNew;mPreset=preset;mSess=sessDate;if(mDraft.type==='meeting')migrateMeeting(mDraft);
   $('#layer').classList.add('on');renderModal();$('#mBody').scrollTop=0;
   if(focusAction)setTimeout(()=>{const c=$(`[data-aid="${focusAction}"]`);if(c){c.scrollIntoView({block:'center'});c.classList.add('flash');}},50);
-  if(focusMove){mDraft.moves=mDraft.moves||{};if(!mDraft.moves[focusMove])mDraft.moves[focusMove]={date:focusMove,reason:''};renderModal();
+  if(focusMove){mDraft.moves=mDraft.moves||{};if(!mDraft.moves[focusMove])mDraft.moves[focusMove]={date:moveDate||focusMove,reason:''};renderModal();
     setTimeout(()=>{const c=$(`[data-move="${focusMove}"]`);if(c){c.scrollIntoView({block:'center'});c.classList.add('flash');const i=c.querySelector('input[type=date]');if(i)i.focus();}},60);}
   if(focusSkip)setTimeout(()=>{const c=$(`[data-skip="${focusSkip}"]`);if(c){c.scrollIntoView({block:'center'});c.focus();c.closest('.skiprow').classList.add('flash');}},60);
 }
